@@ -53,15 +53,16 @@ Your application asks through OEREP, an open remote evaluation protocol modeled 
 
 | | |
 |---|---|
-| [`spec/`](spec/README.md) | Semantic specification, the OEREP v1 [OpenAPI](spec/oerep.openapi.json), and an 11-feature [conformance suite](spec/assets/gherkin/README.md) |
+| [`spec/`](spec/README.md) | Semantic specification, the OEREP 0.1 [OpenAPI](spec/oerep.openapi.json), and an 11-feature [conformance suite](spec/assets/gherkin/README.md) |
 | [`sdk-python/`](sdk-python/README.md) | `openentitlement-sdk`: Pydantic is the only core dependency; optional `[postgres]` extra |
 | [`sdk-js/`](sdk-js/README.md) | `@openentitlement/core`: Zod is the only dependency; `/authoring` and optional `/postgres` entry points |
 | [`console/`](console/README.md) | The entitlement service, OEREP API and administrative console |
+| [`sdk-python/packages/service/`](sdk-python/packages/service/README.md) | Python HTTP service and console host ([ADR-0009](ADR-0009.md)) |
 | [`website/`](website/README.md) | openentitlement.dev: landing page and documentation |
 
 ## Status
 
-`v0.1.0`, a draft. OEREP v1 is implemented in both SDKs and the reference service, with cross-language HTTP integration tests. Both SDKs pass the conformance suite on every provider, for the capabilities each provider declares:
+`v0.1.0`, a draft. OEREP 0.1 is implemented in both SDKs and the reference service, with cross-language HTTP integration tests. Both SDKs pass the conformance suite on every provider, for the capabilities each provider declares:
 
 | Target | Python | TypeScript |
 |---|---|---|

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyData, privilege, tier, variant, organization, changePrivilege, holdsContractTerms, ownValueHolders, resolve, type WorkspaceData } from "../server/workspace/model.ts";
+import { emptyData, privilege, tier, variant, organization, changePrivilege, holdsContractTerms, ownValueHolders, resolve, type WorkspaceData } from "../web/src/model/model.ts";
 
 /** Pro and Trial variants, an Organization Acme with terms, and one application user. */
 function workspace(): WorkspaceData {

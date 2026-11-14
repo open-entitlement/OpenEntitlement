@@ -3,6 +3,9 @@ title: Python SDK
 description: Evaluate entitlements from Python using the synchronous reference SDK.
 ---
 
+The Product-bound RemoteProvider shown here is preview source behavior. It requires the Python service’s Product API key and does not connect directly to the historical Node demo.
+
+
 The Python SDK is synchronous and uses `urllib` from the standard library for remote evaluation. Its models are [Pydantic](https://docs.pydantic.dev/) models; Pydantic is the only required dependency.
 
 ## Install
@@ -27,26 +30,24 @@ uv sync
 Save the example as `sdk-python/example.py` and run `uv run python example.py`. Start the [demo service](/docs/quickstart/) first.
 
 ```python
-import json
 import os
-from pathlib import Path
 from openentitlement import Catalog, RemoteProvider, create_client
 
-catalog = Catalog.from_dict(json.loads(
-    (Path(__file__).resolve().parent.parent / 'spec/assets/catalog.json').read_text()
-))
+catalog = Catalog.from_dict({"features": [{"code": "limits", "name": "Limits", "privileges": [
+    {"key": "seats", "valueType": "integer", "default": 0}
+]}]})
 client = create_client(
     catalog=catalog,
     provider=RemoteProvider(
-        'http://localhost:8787',
-        token=os.environ.get('OE_EVAL_TOKEN'),
+        'http://localhost:18789',
+        product='acme_product',
+        token=os.environ.get('OE_API_KEY'),
         timeout=5.0,
     ),
 )
 context = {'organization_id': 'acme'}
-print(client.get_limit('seat_max', context))  # 250
-print(client.is_enabled('sso', context))      # True
-print(client.get_details('seat_max', context).to_dict())
+print(client.get_limit('seats', context))  # 25
+print(client.get_details('seats', context).to_dict())
 ```
 
 ## Caching
@@ -57,8 +58,9 @@ The remote provider makes one HTTP call per evaluation unless you opt in to a sh
 from openentitlement.details import EvaluationContext
 
 provider = RemoteProvider(
-    'http://localhost:8787',
-    token=os.environ.get('OE_EVAL_TOKEN'),
+    'http://localhost:18789',
+    product='acme_product',
+    token=os.environ.get('OE_API_KEY'),
     cache_ttl=10.0,            # seconds; off when None (the default)
     cache_max_entries=10_000,  # default; least recently used entries are evicted
 )
@@ -103,4 +105,4 @@ def check_catalog(catalog: PrivilegeCatalog) -> PrivilegeCatalog:
     return catalog  # invalid Catalogs are rejected with 422
 ```
 
-A response looks like `{"privilege": "seat_max", "value": 3, "reason": "PLAN", "grants": [], "staleOverrides": [], "planId": "free", "planValue": 3}`. This is the same OEREP v1 details shape that `to_dict()` returns: absent members are omitted and UNLIMITED is `{"unlimited": true}`. The OpenAPI schema lists camelCase property names. The runnable [FastAPI example](https://github.com/open-entitlement/OpenEntitlement/blob/main/sdk-python/examples/fastapi_app.py) is covered by the SDK test suite.
+A response looks like `{"privilege": "seat_max", "value": 3, "reason": "PLAN", "grants": [], "staleOverrides": [], "planId": "free", "planValue": 3}`. This is the same OEREP 0.1 details shape that `to_dict()` returns: absent members are omitted and UNLIMITED is `{"unlimited": true}`. The OpenAPI schema lists camelCase property names. The runnable [FastAPI example](https://github.com/open-entitlement/OpenEntitlement/blob/main/sdk-python/examples/fastapi_app.py) is covered by the SDK test suite.

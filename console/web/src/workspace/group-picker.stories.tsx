@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {Meta,StoryObj} from '@storybook/react-vite';
 import {expect,userEvent,within} from 'storybook/test';
-import type {Group} from '../../../server/workspace/model.ts';
+import type {Group} from '../model/model.ts';
 import {GroupPicker} from './group-picker.tsx';
 
 function Example({failure=false}:{failure?:boolean}){

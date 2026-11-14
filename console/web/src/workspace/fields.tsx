@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from "react";
-import { valueError, type Privilege, type Value } from "../../../server/workspace/model.ts";
-import type {EnvironmentOverrides} from "../../../server/environment.ts";
+import { valueError, type Privilege, type Value } from "../model/model.ts";
+import type {EnvironmentOverrides} from "../model/environment.ts";
 import {EnvironmentNotice, Toggle } from "../privilege-controls.tsx";
 
 /** One value input. `label` names it when the Privilege key alone is ambiguous, such as one value per variant. */

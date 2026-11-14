@@ -21,11 +21,12 @@ Primary users:
 | Feature | Status | Where |
 |---|---|---|
 | Entitlement specification v0.1 (RFC 2119 requirements, Gherkin conformance suite) | ✅ | `spec/`, #1, #2 |
-| OEREP v1 remote evaluation protocol (single, bulk, upgrade suggestion) | ✅ | `spec/sections/10-remote-evaluation.md`, #1 |
+| OEREP 0.1 remote evaluation protocol (single, bulk, upgrade suggestion) | ✅ | `spec/sections/10-remote-evaluation.md`, #1 |
 | Entitlements v0.2 proposal: Tier variants, contracts, JSON Schema definitions | ✅ proposed (RFC-0001) | #20 |
 | Flat privilege identifiers only; nesting belongs to Groups, with cross-hierarchy Tags | ✅ | #40, merged on `main` |
 | Privilege Catalog authoring contract: Groups, Tags, visibility | ✅ accepted (RFC-0002) | #24 |
-| Product-scoped evaluation in OEREP 0.1: `/oerep/v1/products/{product}/privileges/{privilege}/resolve`, `upgrade` replaces `suggest`, keys bound to one Product | 📋 accepted (RFC-0005) | `docs/rfcs/0005-product-scoped-evaluation.md` |
+| Product-scoped evaluation in OEREP 0.1: `/oerep/v1/products/{product}/privileges/{privilege}/resolve`, `upgrade` replaces `suggest`, keys bound to one Product | 🚧 implemented preview on `service/python` (OPE-42); not released (RFC-0005) | `docs/rfcs/0005-product-scoped-evaluation.md` |
+| Allowances that reset per period ("10M tokens a week"): optional day, week or month reset period on integer Privileges, returned by OEREP with the value; usage stays the application's | 📋 proposed (RFC-0006), open questions for the owner; after the Python switch-over (OPE-45) | `docs/rfcs/0006-periodic-allowances.md`, OPE-62 |
 | Read-only consumption dashboard | 📋 proposed (RFC-0003), blocked on a real usage source | `docs/rfcs/0003-consumption-dashboard.md` |
 | Generated JSON Schema as the shared cross-language contract | 🚧 | ADR-0006, #39; regenerated from #38 models, shared parity and serialization fixtures |
 
@@ -48,8 +49,14 @@ Primary users:
 |---|---|---|
 | Reference service: OEREP API, audited administration, Postgres storage | ✅ | `console/`, #1 |
 | Python service: rewrite of the reference service in three layers (FastAPI and FastMCP interfaces → service layer → repositories), SQLAlchemy Core + asyncpg + Alembic, RFC 9457 Problem Details for every error, Products from the start, one switch-over from Node | 📋 accepted (ADR-0009) | `ADR-0009.md`; Linear project "Python service" (OPE-37 to OPE-48) |
+| Python service foundation: uv project in the Python workspace, FastAPI app serving the console, one RFC 9457 handler with problem pages, SQLAlchemy Core + asyncpg (pooler-safe), Alembic baseline applied at startup with a drift check, per-Workspace transactions under row-level security, in-memory/Postgres repository contract suite, Docker image | ✅ implemented preview | `sdk-python/packages/service/`, `Dockerfile`, OPE-37 |
+| Python service sign-in, Workspaces and Products: OIDC sign-in with PKCE, session cookie and CSRF check, Accounts and Workspaces (each starts with one Product), per-Product Roles (Manager, User) with Workspace-wide Owners, one authorization check per operation with Problem Details refusals, Owners create/rename/archive/restore/delete Products; console sign-in, Workspace creation and switcher against it, Product selector hidden with one Product | ✅ implemented preview | `sdk-python/packages/service/`, `console/test/python-service-browser.mjs`, OPE-38 |
+| Python service Privilege Catalog per Product: canonical SDK models, nested Groups, Tags, per-record versions, atomic required variant values, authenticated write audit and console Catalog | ✅ implemented preview | OPE-39; `sdk-python/packages/service/`, `console/test/python-service-browser.mjs` |
+| Python service Tiers per Product: a Tier created with its standard variant in one transaction, trial and grace variants, rank and grace days, a status policy per Product, archive/restore/delete, authenticated write audit and the console Tiers page | ✅ implemented preview | OPE-40; `sdk-python/packages/service/`, `console/test/python-service-browser.mjs` |
+| Python service Organizations: Workspace-wide names for every member, one Tier variant per Product with contract status, past-due grace and the status policy, Organization terms with a server-enforced reason, values resolved by the SDK engine with glossary sources, and the console Organizations page; application users' Personal terms and Grants per Product, gated by Cloud Enterprise | ✅ implemented preview (OPE-41, OPE-60) | OPE-41, OPE-60; `sdk-python/packages/service/`, `console/test/python-service-browser.mjs` |
+| Python service Members, invitations and Cloud service tier: Members page with each member's Role per Product (Managers see their Products' members, Owners everyone), single-use 7-day invitation links bound to the verified email, removal with confirmation, at least one Owner, Cloud Pro 1 Product / Enterprise unlimited set by a Platform administrator with downgrades refused while several Products exist, no limit self-hosted; console Settings (Members, Service) against it | ✅ implemented preview | OPE-44; `sdk-python/packages/service/`, `console/test/python-service-browser.mjs` |
 | Docker image, empty first install with setup screen, Compose files (memory and Postgres) | ✅ | #8, #14 |
-| Contracts with private PDF evidence | ✅ | #13 |
+| Contracts with private PDF evidence | ✅ Node implementation (#13); Python parity implemented in preview, current-head image validation and conductor review pending | #13; [OPE-45 parity gap](docs/implementation/ope-45.md#contract-and-private-pdf-parity-blocker) |
 | Read-only YAML configuration view | ✅ | #19 |
 | Workspace control plane: OIDC sign-in, Workspaces, members and Roles, isolation, audit | ✅ preview | #22 |
 | Privilege Catalog editor: typed Privileges, Groups, Tags, hidden and read-only values | ✅ | #23, #24; nested hierarchy and cross-branch Tag regression coverage: #38 |
@@ -57,9 +64,12 @@ Primary users:
 | Tiers and Tier variants (standard, trial, grace), Organization terms | ✅ preview | #22, #27 |
 | Application-user entitlements: personal terms and grants | ✅ | #27 |
 | Workspace API keys and evaluation endpoint | ✅ preview | #22 |
-| Products: one Workspace sells several Products, each with its own Catalog, Groups, Tags and Tiers; per-Product roles; archiving Tiers and Products; Cloud Pro 1 Product, Enterprise unlimited | 📋 accepted (ADR-0008) | — |
-| Audit log for Managers and Owners: actor emails, readable entries naming what changed, before → after values | 📋 accepted (ADR-0007) | — |
-| Console UX audit fixes: requiring a Privilege's value asks for the existing variants' values in the same save (one for every variant, or per variant); leaving a form with unsaved changes asks "Discard your changes?"; switching an Organization's variant names the terms saving will clear and switching back restores them; making a Privilege Read-only confirms which records set their own value and removes those values in the same change (with a reason when they include contract terms; API clients ask with `removeOwnValues`, otherwise values stay stored without effect); standard user form | ✅ preview | OPE-54 (Node preview service; the Python service follows in OPE-39/OPE-41); user form #58 |
+| Python service console: Product API keys for the selected Product's Managers and the Owners (create with the secret shown once, list, revoke), a Product-scoped configuration export without hidden values, Workspace creation in the Audit log | ✅ implemented preview | OPE-70; `console/web/src/workspace/product-api-keys.tsx`, `console/web/src/workspace/configuration.ts`, `console/test/python-service-browser.mjs` |
+| Products: one Workspace sells several Products, each with its own Catalog, Groups, Tags and Tiers; per-Product roles; archiving Tiers and Products; Cloud Pro 1 Product, Enterprise unlimited | 🚧 Products, per-Product roles and Product archiving on `service/python` (OPE-38), per-Product Catalog (OPE-39), Tiers and Tier archiving (OPE-40), Organizations with one Tier variant per Product (OPE-41), Cloud limits (OPE-44) · accepted (ADR-0008) | OPE-38 |
+| Tier minimums: a Tier sets the lowest value of an integer Privilege, checked when Organization terms are saved, an Organization is given the Tier, and the minimum changes; standard variant and Organization terms only; a raise above existing terms is refused and lists those Organizations; authoring only, no protocol change | 📋 accepted (ADR-0011); Python service only, after OPE-45 | `ADR-0011.md`, OPE-62 |
+| Minimum commitments: recorded on an Organization's contract and displayed only; charging out of scope | 📋 accepted (ADR-0011); Python service only, after OPE-45 | `ADR-0011.md`, OPE-62 |
+| Audit log for Managers and Owners: actor emails, readable entries naming what changed, before → after values | ✅ implemented preview | OPE-43; Product-projected snapshots and paginated console read side |
+| Console UX audit fixes: requiring a Privilege's value asks for the existing variants' values in the same save (one for every variant, or per variant); leaving a form with unsaved changes asks "Discard your changes?"; switching an Organization's variant names the terms saving will clear and switching back restores them; making a Privilege Read-only confirms which records set their own value and removes those values in the same change (with a reason when they include contract terms; API clients ask with `removeOwnValues`, otherwise values stay stored without effect); standard user form | ✅ preview | OPE-54 (Node preview service); on `service/python` the forms, discard warning (including the Product selector) and variant values apply too, while making a Privilege Read-only keeps stored values without effect (OPE-70); user form #58 |
 | Where each value comes from, in glossary terms: Catalog default, the Tier variant's name, Organization terms, Personal terms or Grace period, with a one-line sum when a Grant adds to it ("Personal terms 50 + Grant 5") | ✅ preview | OPE-55; `console/web/src/workspace/subjects.tsx` |
 | Fine-grained, scoped Permissions per Role | 📋 | issue #15 |
 | Object storage (S3-compatible) for PDFs with signed uploads | 📋 | issue #15 |
@@ -113,6 +123,10 @@ Primary users:
 |---|---|---|
 | Train parks tickets with unanswered questions, batches questions with recommendations, continues independent work and resumes after answers | ✅ documented workflow | OPE-57; `.agents/skills/implement-train/SKILL.md`, `.agents/skills/implement-train/BRIEF.md` |
 
+## Python service decision handoff
+
+[ADR-0010](ADR-0010.md) records Q1–Q14 as approved direction without marking implementation tickets Done. Q13 (the application-user removal reason moves from the URL to the request body) is done on `service/python` (OPE-66) and ships to `main` with the Python service. Q14 / OPE-52 is 👤 the owner's task: watching 3–5 developers who don't know the project try the quickstart.
+
 ## Open owner actions
 
 1. On PyPI and npm, change the trusted publisher owner from `GameSetAndMatch` to `open-entitlement` before the next release.
@@ -125,3 +139,7 @@ Primary users:
 - At most two parallel agents at a time.
 - Self-hosted installations send no telemetry unless the operator configures their own PostHog key.
 - Never reference private customers or companies in public files.
+
+OPE-45: Python publication and Compose entry points replace Node in preview source.
+Container and full integration validation are recorded in PR #80; conductor review
+and merge remain required. RFC-0006 and inert Read-only values retain their current status.

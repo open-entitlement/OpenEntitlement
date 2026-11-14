@@ -1,7 +1,7 @@
 import type {Meta,StoryObj} from '@storybook/react-vite';
 import {expect,fn,userEvent,within} from 'storybook/test';
 import {PrivilegeForm,freshPrivilege} from './privilege-form.tsx';
-import type {Privilege} from '../../../server/workspace/privilege-definition.ts';
+import type {Privilege} from '../model/privilege-definition.ts';
 
 /** The runner waits for this marker, so a story whose play throws never passes silently. */
 const done=(canvasElement:HTMLElement)=>{canvasElement.dataset.playComplete='true';};

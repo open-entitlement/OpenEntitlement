@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {Meta,StoryObj} from '@storybook/react-vite';
 import {expect,userEvent,within} from 'storybook/test';
-import type {Tag} from '../../../server/workspace/model.ts';
+import type {Tag} from '../model/model.ts';
 import {TagPicker} from './tag-picker.tsx';
 function Example({failure=false}:{failure?:boolean}){
  const [tags,setTags]=useState<Tag[]>([{id:'capacity',name:'Capacity',description:''},{id:'access',name:'Access',description:''}]);

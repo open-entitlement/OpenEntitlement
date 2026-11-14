@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { Field, ValuesEditor } from './fields.tsx';
-import type { Privilege, Value } from '../../../server/workspace/model.ts';
+import type { Privilege, Value } from '../model/model.ts';
 const limit: Privilege = { key: 'max_exports', name: 'Maximum exports', description: 'Exports each organization may create.', featureId: 'exports', type: 'integer', minimum: 0, unlimited: true, default: 5 };
 function Controlled(args: React.ComponentProps<typeof Field>) {
   const [value,setValue] = useState(args.value);

@@ -1,0 +1,271 @@
+"""Every table, defined once with SQLAlchemy Core (no ORM). Alembic migrates from these definitions.
+
+A Workspace table carries ``workspace_id`` and is protected by row-level security: a
+transaction sees and writes only the rows of the Workspace it is bound to. Each record carries
+its own ``version`` for optimistic concurrency (ADR-0009).
+"""
+from __future__ import annotations
+
+from sqlalchemy import (
+    LargeBinary,
+    Index,
+    BigInteger,
+    Boolean,
+    Identity,
+    JSON,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    ForeignKeyConstraint,
+    UniqueConstraint,
+    Uuid,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
+
+metadata = MetaData(
+    naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+    }
+)
+
+workspaces = Table(
+    "workspaces",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("name", Text, nullable=False),
+    # The Cloud service tier; a self-hosted install ignores it (ADR-0008).
+    Column("service_tier", Text, nullable=False, server_default="pro"),
+    Column("version", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("service_tier in ('pro', 'enterprise')", name="service_tier"),
+)
+
+products = Table(
+    "products",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("workspace_id", Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False),
+    Column("key", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("archived_at", DateTime(timezone=True)),
+    Column("version", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("workspace_id", "key"),
+    # Lets a Product's Roles reference it together with its Workspace.
+    UniqueConstraint("workspace_id", "id"),
+)
+
+# Accounts, sessions and sign-in flows belong to no Workspace: they have no row-level security.
+accounts = Table(
+    "accounts",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("issuer", Text, nullable=False),
+    Column("subject", Text, nullable=False),
+    Column("email", Text, nullable=False),
+    Column("platform_admin", Boolean, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("issuer", "subject"),
+)
+
+sessions = Table(
+    "sessions",
+    metadata,
+    Column("token_hash", Text, primary_key=True),
+    Column("account_id", Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("csrf", Text, nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+)
+
+sign_in_flows = Table(
+    "sign_in_flows",
+    metadata,
+    Column("flow_hash", Text, primary_key=True),
+    Column("state", Text, nullable=False),
+    Column("nonce", Text, nullable=False),
+    Column("verifier", Text, nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+)
+
+# A member's Workspace-wide membership; ``owner`` makes them Owner of every Product (ADR-0008).
+members = Table(
+    "members",
+    metadata,
+    Column("workspace_id", Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True),
+    Column("account_id", Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True, index=True),
+    Column("owner", Boolean, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+# A member's Role in one Product.
+product_roles = Table(
+    "product_roles",
+    metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("product_id", Uuid, primary_key=True),
+    Column("account_id", Uuid, primary_key=True, index=True),
+    Column("role", Text, nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    ForeignKeyConstraint(
+        ["workspace_id", "account_id"], ["members.workspace_id", "members.account_id"], ondelete="CASCADE"
+    ),
+    CheckConstraint("role in ('Manager', 'User')", name="role"),
+)
+
+# One table per Catalog record kind. The canonical Pydantic payload is stored as JSON;
+# identity, Product scope and concurrency are ordinary relational columns.
+def catalog_table(name: str) -> Table:
+    return Table(
+        name, metadata,
+        Column("workspace_id", Uuid, nullable=False),
+        Column("product_id", Uuid, primary_key=True),
+        Column("key", Text, primary_key=True),
+        Column("version", Integer, nullable=False),
+        Column("entry", JSON, nullable=False),
+        ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    )
+
+catalog_variant_values = catalog_table("catalog_variant_values")
+
+catalog_groups = catalog_table("catalog_groups")
+catalog_tags = catalog_table("catalog_tags")
+catalog_privileges = catalog_table("catalog_privileges")
+
+# A single-use invitation link, stored by hash. An Owner invitation has no Product; a Manager or
+# User invitation names one, and is deleted with it.
+invitations = Table(
+    "invitations", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("workspace_id", Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False),
+    Column("token_hash", Text, nullable=False, unique=True),
+    Column("email", Text, nullable=False),
+    Column("owner", Boolean, nullable=False),
+    Column("product_id", Uuid),
+    Column("role", Text),
+    Column("invited_by", Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    CheckConstraint(
+        "(owner and product_id is null and role is null)"
+        " or (not owner and product_id is not null and role in ('Manager', 'User'))",
+        name="role",
+    ),
+)
+
+# A Product's Tiers (OPE-40). Their variants are rows of ``catalog_variant_values``.
+tiers = catalog_table("tiers")
+
+# A Product's status policy: one row per Product, absent until first saved.
+status_policies = Table(
+    "status_policies", metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("product_id", Uuid, primary_key=True),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+)
+
+# The Workspace's Organizations (OPE-41): Workspace-wide, keyed by the ID applications send.
+organizations = Table(
+    "organizations", metadata,
+    Column("workspace_id", Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True),
+    Column("key", Text, primary_key=True),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+)
+
+# An Organization's Tier variant in one Product, with its contract status and Organization terms.
+# One per Organization per Product. The variant reference keeps a used Tier from being deleted.
+organization_products = Table(
+    "organization_products", metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("product_id", Uuid, primary_key=True),
+    Column("organization_id", Text, primary_key=True),
+    Column("variant_id", Text, nullable=False),
+    Column("tier_id", Text, nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    ForeignKeyConstraint(
+        ["workspace_id", "organization_id"], ["organizations.workspace_id", "organizations.key"], ondelete="CASCADE"
+    ),
+    ForeignKeyConstraint(["product_id", "variant_id"], ["catalog_variant_values.product_id", "catalog_variant_values.key"]),
+)
+
+# An application user's Personal terms and Grants in one Product (OPE-60). The Organization may have
+# no assignment for retained Grants (RFC-0005). The variant the terms belong to is in ``entry``.
+application_users = Table(
+    "application_users", metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("product_id", Uuid, primary_key=True),
+    Column("organization_id", Text, primary_key=True),
+    Column("subject_id", Text, primary_key=True),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    ForeignKeyConstraint(["workspace_id", "organization_id"], ["organizations.workspace_id", "organizations.key"], ondelete="CASCADE"),
+)
+
+
+# The Audit log (ADR-0007): immutable entries, read newest first. ``owners_only``, ``shared`` and
+# ``products`` repeat what the entry says about who may read it, so a Manager's page is filtered in SQL.
+# ``products`` has no foreign key: an entry about a deleted Product still reads correctly.
+audit_entries = Table(
+    "audit_entries", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("workspace_id", Uuid, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False),
+    # Write order, so changes made in one transaction (at the same time) read back in order.
+    Column("seq", BigInteger, Identity(always=True), nullable=False),
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("owners_only", Boolean, nullable=False),
+    Column("shared", Boolean, nullable=False),
+    Column("products", ARRAY(Uuid), nullable=False),
+    Column("entry", JSON, nullable=False),
+    Index("ix_audit_entries_workspace_id_seq", "workspace_id", "seq"),
+)
+
+# A Product's API keys (OPE-42). Only the SHA-256 of each secret is stored; revoking deletes the row.
+api_keys = Table(
+    "api_keys", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("workspace_id", Uuid, nullable=False),
+    Column("product_id", Uuid, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("token_hash", Text, nullable=False, unique=True),
+    Column("hint", Text, nullable=False),
+    Column("created_by", Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+)
+
+contracts = Table(
+    "contracts", metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("id", Uuid, primary_key=True),
+    Column("product_id", Uuid, nullable=False),
+    Column("organization_id", Text, nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+    UniqueConstraint("workspace_id", "id"),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    ForeignKeyConstraint(["workspace_id", "organization_id"], ["organizations.workspace_id", "organizations.key"], ondelete="CASCADE"),
+)
+contract_documents = Table(
+    "contract_documents", metadata,
+    Column("workspace_id", Uuid, primary_key=True),
+    Column("contract_id", Uuid, primary_key=True),
+    Column("id", Uuid, primary_key=True),
+    Column("content", LargeBinary, nullable=False),
+    CheckConstraint("octet_length(content) <= 10485760", name="bounded_pdf"),
+    ForeignKeyConstraint(["workspace_id", "contract_id"], ["contracts.workspace_id", "contracts.id"], ondelete="CASCADE"),
+)

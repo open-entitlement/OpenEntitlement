@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { variantName, uniqueIdentifier } from "../web/src/workspace/identifier.ts";
-import { tier, variant, type WorkspaceData } from "../server/workspace/model.ts";
+import { tier, variant, type WorkspaceData } from "../web/src/model/model.ts";
 
 test("derived variant names stay within the server's limit for any valid tier name", () => {
   const name = "P".repeat(200);

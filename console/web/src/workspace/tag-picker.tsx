@@ -1,6 +1,6 @@
 import {identifierFromTitle} from './identifier.ts';
 import {useRef,useState} from 'react';
-import type {Tag} from '../../../server/workspace/model.ts';
+import type {Tag} from '../model/model.ts';
 
 /** Tags are reusable labels selected in the Privilege editor, separate from Groups. */
 export function TagPicker({tags,selected,onChange,onCreate,disabled=false}:{tags:Tag[];selected:string[];onChange:(ids:string[])=>void;onCreate:(tag:Tag)=>Promise<boolean>;disabled?:boolean}){

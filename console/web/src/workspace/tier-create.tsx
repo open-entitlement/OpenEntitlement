@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {trackWrite,useUnsavedChanges} from "./unsaved.ts";
 import type {Workspace,Save} from "./app.tsx";
-import {tier as validTier,variant as validVariant,type Tier,type Value} from "../../../server/workspace/model.ts";
+import {tier as validTier,variant as validVariant,type Tier,type Value} from "../model/model.ts";
 import {ValuesEditor} from "./fields.tsx";
 import {FormField} from "../form.tsx";
 import {identifierFromTitle,uniqueIdentifier,variantName} from "./identifier.ts";
@@ -38,6 +38,8 @@ export function TierCreate({workspace:w,save,busy,onCancel,onCreated}:{workspace
     // Validate both records with the server's rules before saving either, so a tier is never left without its variant.
     try{validTier(tier);validVariant({...w.data,tiers:[...w.data.tiers.filter(t=>t.id!==id),tier]},standard);}catch(e){setError((e as Error).message);return;}
     setError("");setSubmitting(true);
+    // The Python service creates the Tier and its standard variant in one transaction.
+    if(w.products){try{if(await save("tiers",{...tier,standard},"Create tier"))onCreated(id);}finally{setSubmitting(false);}return;}
     // Both saves are one write for leaving: it waits until the tier has its variant, or one of them failed.
     await trackWrite((async()=>{try{
       if(savedTier!==id){if(!await save("tiers",tier,"Create tier"))return;setSavedTier(id);}

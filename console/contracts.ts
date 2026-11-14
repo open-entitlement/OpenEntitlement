@@ -14,6 +14,7 @@ export interface ContractEvidence {
   note: string;
 }
 export interface Contract {
+  version: number;
   id: string;
   organizationId: string;
   title: string;

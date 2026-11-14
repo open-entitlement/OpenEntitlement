@@ -1,0 +1,105 @@
+"""Builds the FastAPI application around a ``Store``."""
+from __future__ import annotations
+
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
+
+import os
+
+import httpx
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from starlette.types import Receive, Scope, Send
+
+from ...services.problems import NotFound
+from ...services.repositories import Store
+from ...services.sign_in import SignInPolicy, SignInService
+from ...services.evaluation import EvaluationService
+from ...services.members import MemberService
+from ...services.workspaces import Deployment, WorkspaceService, utcnow
+from . import contracts, api_keys, auth, problems, workspaces, catalog, members, oerep, tiers, organizations
+from . import audit
+from .telemetry import Telemetry, console_headers
+from .telemetry import router as telemetry_router
+from .oidc import OidcClient
+
+
+def create_app(
+    store: Store,
+    *,
+    console_dir: Path | None = None,
+    sign_in: auth.SignInSettings | None = None,
+    oidc_transport: httpx.AsyncBaseTransport | None = None,
+    clock: Callable[[], datetime] = utcnow,
+    deployment: Deployment = Deployment.SELF_HOSTED,
+    on_startup: Callable[[], Awaitable[None]] | None = None,
+    on_shutdown: Callable[[], Awaitable[None]] | None = None,
+    telemetry: Telemetry | None = None,
+) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if on_startup:
+            await on_startup()
+        try:
+            yield
+        finally:
+            if on_shutdown:
+                await on_shutdown()
+
+    app = FastAPI(title="OpenEntitlement", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    problems.install(app)
+    app.state.store = store
+    app.state.telemetry = telemetry
+    app.state.workspaces = WorkspaceService(store, clock=clock, deployment=deployment)
+    app.state.members = MemberService(store, clock=clock)
+    # Boolean environment prerequisites read the install's environment (ADR-0004).
+    app.state.evaluation = EvaluationService(store, environment=os.environ, clock=clock, deployment=deployment)
+    # Without sign-in settings nobody can sign in; the policy then only names a placeholder issuer.
+    policy = sign_in.policy() if sign_in else SignInPolicy(issuer="")
+    app.state.authentication = auth.Authentication(
+        service=SignInService(store, policy, clock=clock),
+        oidc=OidcClient(sign_in.oidc, transport=oidc_transport) if sign_in else None,
+    )
+    app.include_router(contracts.router)
+    app.include_router(auth.router)
+    app.include_router(workspaces.router)
+    app.include_router(catalog.router)
+    app.include_router(tiers.router)
+    app.include_router(organizations.router)
+    app.include_router(members.router)
+    app.include_router(audit.router)
+    app.include_router(api_keys.router)
+    app.include_router(oerep.router)
+    app.include_router(telemetry_router)
+
+    @app.get("/healthz", tags=["health"])
+    async def health() -> dict[str, str]:
+        await store.ping()
+        return {"status": "ok"}
+
+    if console_dir is not None:
+        _serve_console(app, console_dir.resolve(), console_headers(telemetry))
+    return app
+
+
+API_PREFIXES = ("api", "auth", "oerep", "mcp", "healthz")
+
+
+def _serve_console(app: FastAPI, root: Path, headers: dict[str, str]) -> None:
+    """Serve the built React console, falling back to its page for client-side routes.
+
+    Mounted last, so it only sees addresses no route matched. API addresses never fall back.
+    """
+    index = root / "index.html"
+
+    async def console(scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope["path"].lstrip("/")
+        if scope["method"] not in ("GET", "HEAD") or path.split("/", 1)[0] in API_PREFIXES:
+            raise NotFound()
+        candidate = (root / path).resolve()
+        target = candidate if candidate.is_relative_to(root) and candidate.is_file() else index
+        await FileResponse(target, headers=headers)(scope, receive, send)
+
+    app.mount("/", console)

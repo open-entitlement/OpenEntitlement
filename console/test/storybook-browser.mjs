@@ -10,6 +10,12 @@ const server=createServer(async(req,res)=>{try{const path=resolve(root,'.'+new U
 await new Promise(ok=>server.listen(0,'127.0.0.1',ok));const origin=`http://127.0.0.1:${server.address().port}`;
 let browser;
 try{browser=await chromium.launch();const page=await browser.newPage();const failures=[];page.on('pageerror',e=>failures.push(e.message));
+ await page.goto(`${origin}/iframe.html?id=workspace-contract-evidence--private-evidence&viewMode=story`);
+ await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000});
+ for(const story of ['changes','french','variant-names-and-api-keys','variant-names-and-api-keys-french','refresh-during-load-more','load-more-during-refresh']){
+  await page.goto(`${origin}/iframe.html?id=workspace-audit-log--${story}&viewMode=story`);
+  await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000});
+ }
  for(const story of ['finite','unlimited','invalid-negative','boolean-access','required-enum','inheritance','environment-override','frozen-default']){
   await page.goto(`${origin}/iframe.html?id=catalog-typed-value--${story}&viewMode=story`);
   await page.locator('#storybook-root').locator('input,select,button').first().waitFor();
@@ -46,6 +52,13 @@ try{browser=await chromium.launch();const page=await browser.newPage();const fai
   }
   await page.goto(`${origin}/iframe.html?id=workspace-switcher--switch-and-create&viewMode=story`);
   await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000}).catch(()=>{throw new Error(`Story workspace-switcher--switch-and-create did not finish at ${width}px`);});
+  await page.goto(`${origin}/iframe.html?id=workspace-tier-availability--archive-and-restore&viewMode=story`);await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000}).catch(()=>{throw new Error(`Story tier-availability--archive-and-restore did not finish at ${width}px`);});await assertFormLayout(page);
+  for(const story of ['several-products','one-product']){await page.goto(`${origin}/iframe.html?id=workspace-product-selector--${story}&viewMode=story`);await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000}).catch(()=>{throw new Error(`Story product-selector--${story} did not finish at ${width}px`);});}
+  await page.goto(`${origin}/iframe.html?id=workspace-product-api-keys--create-and-revoke&viewMode=story`);await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000}).catch(()=>{throw new Error(`Story product-api-keys--create-and-revoke did not finish at ${width}px`);});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll('.settings-row')].every(r=>r.scrollWidth<=r.clientWidth+1&&r.getBoundingClientRect().right<=innerWidth)),true,`product-api-keys overflows at ${width}px`);
+  // Members with a Role per Product: no row of controls may overflow, at any width.
+  for(const story of ['owner-of-two-products','manager-of-one-product']){await page.goto(`${origin}/iframe.html?id=workspace-product-members--${story}&viewMode=story`);await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000}).catch(()=>{throw new Error(`Story product-members--${story} did not finish at ${width}px`);});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll('.settings-row')].every(r=>r.scrollWidth<=r.clientWidth+1&&r.getBoundingClientRect().right<=innerWidth)),true,`product-members--${story} overflows at ${width}px`);}
   await page.goto(`${origin}/iframe.html?id=workspace-switcher--long-name&viewMode=story`);
   await page.locator('#storybook-root[data-play-complete="true"]').waitFor({timeout:20000});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`A long workspace name widens the page at ${width}px`);

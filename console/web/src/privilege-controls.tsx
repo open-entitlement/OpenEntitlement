@@ -1,4 +1,4 @@
-import { environmentMessage, type EnvironmentOverride } from "../../server/environment.ts";
+import { environmentMessage, type EnvironmentOverride } from "./model/environment.ts";
 export function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string }) {
   return (
     <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} className={`toggle ${checked ? "on" : ""}`} onClick={() => onChange(!checked)}>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyData, group, feature, privilege, tier, variant, organization, resolve, valueError } from "../server/workspace/model.ts";
+import { emptyData, group, feature, privilege, tier, variant, organization, resolve, valueError } from "../web/src/model/model.ts";
 
 test("flat keys, nested groups, typed defaults and inheritance compose without encoding paths", () => {
   const d = emptyData(); d.groups.push(group(d, { id: "product", name: "Product" })); d.groups.push(group(d, { id: "exports", name: "Exports", parentId: "product", description: "Export limits" }));

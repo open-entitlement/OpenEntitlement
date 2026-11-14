@@ -1,10 +1,10 @@
 # Workspace service (development preview)
 
-This is the shared, multitenant control plane. An account can own or join multiple workspaces. Each workspace owns its catalog, tiers, variants and Organizations. The existing standalone console remains available through `npm start`; it does not become a hosted service simply by using PostgreSQL.
+This is the shared, multitenant control plane. An account can own or join multiple workspaces. Each workspace owns its catalog, tiers, variants and Organizations. The Python service hosts the React console at `/` and `/app/`.
 
 ## Run locally
 
-Use Node 24 LTS and PostgreSQL 17. Create a dedicated database and login role that owns it. The runtime role must **not** be a superuser or have BYPASSRLS. Do not point this preview at an existing production database.
+Use uv, Python 3.11 or later, Node 24 LTS to build React, and PostgreSQL 17. Create a dedicated database and login role that owns it. The runtime role must **not** be a superuser or have BYPASSRLS. Do not point this preview at an existing production database.
 
 ```sh
 npm ci --prefix console
@@ -20,14 +20,14 @@ npm --prefix console run dev:issuer
 In another terminal with the same environment, run:
 
 ```sh
-npm --prefix console run start:workspace
+uv run --project sdk-python --locked openentitlement-service
 ```
 
 Open <http://localhost:18789/app/>. The loopback development identity provider accepts `local-admin` or `local-user`, with any non-empty password. These are test identities, not Google accounts. Do not expose this development issuer publicly. The local administrator can inspect every workspace; the other account starts with none.
 
 In **Privilege Catalog**, choose **Define privilege**. The key is filled from the title (`Maximum exports` → `maximum_exports`). Create Groups as folders from the form's Group picker; edit a Group from its section. Group nesting changes presentation, never the evaluation key. Boolean, integer and string values (including string enums) use the same validator in the browser and server. Integer limits can explicitly allow unlimited.
 
-A privilege either supplies a catalog default or requires an explicit value in every variant. For an existing catalog, set that value in all existing variants before removing its default. Create a tier, add its standard/trial/grace variants, then assign an Organization. A variant’s tier and purpose are fixed after creation; create a new variant to change either. Organization terms replace inherited values. Every mutation requires a reason and records the authenticated account in audit history.
+A privilege either supplies a catalog default or requires an explicit value in every variant. For an existing catalog, set that value in all existing variants before removing its default. Create a tier, add its standard/trial/grace variants, then assign an Organization. A variant’s tier and purpose are fixed after creation; create a new variant to change either. Organization terms replace inherited values. Contract-term changes require a reason; writes record the authenticated Account in audit history.
 
 **Configuration** displays a downloadable YAML snapshot of the selected workspace. It excludes memberships, credentials and sessions. It is an export, not a startup configuration import.
 

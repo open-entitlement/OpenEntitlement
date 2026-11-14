@@ -1,61 +1,18 @@
-"""Python SDK against the same real Node OEREP server used by the TS SDK."""
+"""Remote decoding/cache regressions; real Product HTTP parity lives in tests/service."""
 import json
-import shutil
-import subprocess
 from datetime import datetime, timezone
+from openentitlement.remote import decode_remote_details
 from pathlib import Path
 
 import pytest
-from openentitlement import Catalog, RemoteProvider, Reason, UNLIMITED, create_client, EntitlementLimitExceeded
-from openentitlement.remote import decode_remote_details
+from openentitlement import Catalog, RemoteProvider, Reason, create_client, EntitlementLimitExceeded
+from openentitlement.remote import OerepProblem
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.fixture(scope="module")
-def remote():
-    if not shutil.which("node") or not (ROOT / "console/node_modules").exists():
-        pytest.skip("cross-language tests require Node >=22.18 and npm ci in console/")
-    proc = subprocess.Popen(["node", "--conditions=source", "test/fixture.ts"], cwd=ROOT / "console", stdout=subprocess.PIPE, text=True)
-    try:
-        url = proc.stdout.readline().strip()
-        assert url.startswith("http://localhost:"), "OEREP fixture failed to start"
-        catalog = Catalog.from_dict(json.loads((ROOT / "spec/assets/catalog.json").read_text()))
-        yield create_client(provider=RemoteProvider(url, token="eval-test"), catalog=catalog), url, catalog
-    finally:
-        proc.terminate()
-        proc.wait(timeout=10)
-
-
-def test_python_reads_own_server(remote):
-    c, _, _ = remote
-    assert c.get_limit("seat_max", {"organization_id": "hooli"}) == 3
-    d = c.get_details("seat_max", {"organization_id": "acme"})
-    assert d.reason == Reason.OVERRIDE and d.value == 250 and d.plan_value == 100
-    assert c.get_limit("api_calls_monthly", {"organization_id": "acme"}) is UNLIMITED
-    d = c.get_details("api_calls_monthly", {"organization_id": "globex", "subject_id": "hank"})
-    assert d.reason == Reason.GRANT and d.value == 155000 and len(d.grants) == 2
-    assert c.get_enum("report_retention", {"organization_id": "globex"}) == "90d"
-    assert c.is_enabled("sso", {"organization_id": "acme"})
-    assert not c.is_enabled("sso", {"organization_id": "hooli"})
-    with pytest.raises(EntitlementLimitExceeded) as exc:
-        c.require_within("project_max", 1, 1, {"organization_id": "hooli"})
-    assert exc.value.required_plan == "pro"
-    assert c.required_plan("report_retention", "365d", {"organization_id": "globex"}) == "business"
-    d = c.get_details("project_max", {"organization_id": "umbrella", "now": datetime(2026, 11, 3, tzinfo=timezone.utc)})
-    assert d.value == 50 and len(d.stale_overrides) == 1
-
-
-def test_auth_and_bad_responses_fail_closed(remote):
-    _, url, catalog = remote
-    c = create_client(provider=RemoteProvider(url, token="bad"), catalog=catalog)
-    d = c.get_details("seat_max", {"organization_id": "acme"})
-    assert d.reason == Reason.ERROR and d.required_plan is None
-    p = catalog.privilege("seat_max")
-    for bad in [None, {}, {"privilege": "seat_max", "value": 9, "reason": "PLAN", "grants": [{"id": "x", "amount": -1}], "staleOverrides": []}]:
-        with pytest.raises((ValueError, KeyError)):
-            decode_remote_details(bad, p)
-
+# Real service HTTP behavior for both SDKs is covered by
+# service/test_oerep_conformance.py against the Product-scoped Python service.
 
 def test_invalid_remote_grants_and_unlimited_never_inflate_quota():
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -77,7 +34,7 @@ def test_invalid_remote_grants_and_unlimited_never_inflate_quota():
     thread.start()
     try:
         catalog = Catalog.from_dict(json.loads((ROOT / "spec/assets/catalog.json").read_text()))
-        c = create_client(catalog=catalog, provider=RemoteProvider(f"http://127.0.0.1:{server.server_port}"))
+        c = create_client(catalog=catalog, provider=RemoteProvider(f"http://127.0.0.1:{server.server_port}", product="demo"))
         ctx = {"organization_id": "acme", "subject_id": "alice"}
         for grants in ([{"id": "g", "amount": 100, "subjectId": "bob"}],
                        [{"id": "g", "amount": 5}, {"id": "g", "amount": 5}]):
@@ -140,11 +97,11 @@ class _FakeOEREP:
     def response(self, path):
         values = {"seat_max": self.seat_value, "project_max": 5, "api_calls_monthly": 100, "sso_enabled": True,
                   "sso_connection_max": 1, "reports_enabled": True, "report_retention": "90d"}
-        if path == "/oerep/v1/resolve":
+        if path == "/oerep/v1/products/demo/privileges/resolve":
             return {"privileges": [self.details(k, v) for k, v in values.items()]}
-        if path.startswith("/oerep/v1/suggest/"):
+        if path.endswith("/upgrade"):
             return {"requiredPlan": "pro"}
-        return self.details(path.rsplit("/", 1)[1], values[path.rsplit("/", 1)[1]])
+        return self.details(path.split("/")[-2], values[path.split("/")[-2]])
 
     def close(self):
         self.server.shutdown()
@@ -166,14 +123,14 @@ def _catalog():
 
 
 def _cached(fake, ttl=10.0, **kw):
-    provider = RemoteProvider(fake.url, cache_ttl=ttl, **kw)
+    provider = RemoteProvider(fake.url, product="demo", cache_ttl=ttl, **kw)
     clock = [0.0]
     provider._monotonic = lambda: clock[0]
     return provider, create_client(provider=provider, catalog=_catalog()), clock
 
 
 def test_cache_default_off_calls_server_every_time(fake):
-    c = create_client(provider=RemoteProvider(fake.url), catalog=_catalog())
+    c = create_client(provider=RemoteProvider(fake.url, product="demo"), catalog=_catalog())
     for _ in range(3):
         assert c.get_limit("seat_max", {"organization_id": "acme"}) == 10
     assert len(fake.requests) == 3
@@ -221,7 +178,7 @@ def test_caller_supplied_now_is_explicit_even_when_current(fake):
 
 
 def test_cache_works_with_a_client_clock_that_is_not_wall_time(fake):
-    provider = RemoteProvider(fake.url, cache_ttl=10.0)
+    provider = RemoteProvider(fake.url, cache_ttl=10.0, product="demo")
     provider._monotonic = lambda: 0.0
     c = create_client(provider=provider, catalog=_catalog(), clock=lambda: datetime(2020, 1, 1, tzinfo=timezone.utc))
     c.get_limit("seat_max", {"organization_id": "acme"})
@@ -260,17 +217,17 @@ def test_bulk_fills_single_entries(fake):
     assert c.get_limit("seat_max", {"organization_id": "acme"}) == 10
     assert c.get_enum("report_retention", {"organization_id": "acme"}) == "90d"
     assert c.is_enabled("sso", {"organization_id": "acme"})
-    assert [path for path, _ in fake.requests] == ["/oerep/v1/resolve"]
+    assert [path for path, _ in fake.requests] == ["/oerep/v1/products/demo/privileges/resolve"]
     c.get_limit("seat_max", {"organization_id": "globex"})
     assert len(fake.requests) == 2
 
 
 def test_bulk_without_cache_and_invalid_bulk(fake):
     from openentitlement.details import EvaluationContext
-    provider = RemoteProvider(fake.url)
+    provider = RemoteProvider(fake.url, product="demo")
     assert provider.resolve_all(_catalog().privileges, EvaluationContext(organization_id="acme"))["project_max"].value == 5
     fake.seat_value = 1.5  # not an integer
-    cached = RemoteProvider(fake.url, cache_ttl=10)
+    cached = RemoteProvider(fake.url, cache_ttl=10, product="demo")
     with pytest.raises(ValueError):
         cached.resolve_all(_catalog().privileges, EvaluationContext(organization_id="acme"))
     assert not cached._cache
@@ -296,7 +253,7 @@ def test_suggestions_are_not_cached(fake):
     _, c, _ = _cached(fake)
     for _ in range(2):
         assert c.required_plan("report_retention", "365d", {"organization_id": "acme"}) == "pro"
-    assert sum(path.startswith("/oerep/v1/suggest/") for path, _ in fake.requests) == 2
+    assert sum(path.endswith("/upgrade") for path, _ in fake.requests) == 2
 
 
 @pytest.mark.parametrize("kw", [{"cache_ttl": 0}, {"cache_ttl": -1}, {"cache_ttl": float("inf")}, {"cache_ttl": float("nan")},
@@ -304,7 +261,7 @@ def test_suggestions_are_not_cached(fake):
                                 {"cache_max_entries": 1.5}, {"cache_max_entries": True}, {"cache_max_entries": -3}])
 def test_invalid_cache_options_rejected(kw):
     with pytest.raises(ValueError):
-        RemoteProvider("http://localhost:1", **kw)
+        RemoteProvider("http://localhost:1", **kw, product="demo")
 
 
 def test_cache_is_thread_safe(fake):
@@ -327,7 +284,7 @@ def test_check_and_act_paths_always_fetch_and_refresh(fake):
     n = len(fake.requests)
     with pytest.raises(EntitlementLimitExceeded):
         c.guard("seat_max", 1, ctx, count=lambda tx: 3, act=lambda tx: "created")
-    assert [p for p, _ in fake.requests[n:]][0] == "/oerep/v1/resolve/seat_max"
+    assert [p for p, _ in fake.requests[n:]][0] == "/oerep/v1/products/demo/privileges/seat_max/resolve"
     n = len(fake.requests)
     assert c.guard("seat_max", 1, ctx, count=lambda tx: 2, act=lambda tx: "ok").result == "ok"
     assert len(fake.requests) == n + 1
@@ -400,7 +357,7 @@ def test_failed_refresh_evicts_previous_success(fake, monkeypatch, bulk, failure
         if failure == "error":
             assert provider.resolve_all(_catalog().privileges, EvaluationContext(organization_id="acme"))["seat_max"].reason is Reason.ERROR
         else:
-            with pytest.raises(ValueError if failure == "invalid" else OSError):
+            with pytest.raises(ValueError if failure == "invalid" else OerepProblem):
                 provider.resolve_all(_catalog().privileges, EvaluationContext(organization_id="acme"))
     else:
         with pytest.raises(EntitlementLimitExceeded):
@@ -441,7 +398,7 @@ def test_historical_bulk_neither_seeds_nor_evicts_current_cache(fake):
     assert provider.resolve_all(_catalog().privileges, past)["seat_max"].value == 30
     assert c.get_limit("seat_max", {"organization_id": "acme"}) == 20
     fake.fail = True
-    with pytest.raises(OSError):
+    with pytest.raises(OerepProblem):
         provider.resolve_all(_catalog().privileges, past)
     assert c.get_limit("seat_max", {"organization_id": "acme"}) == 20
     assert len(fake.requests) == 4

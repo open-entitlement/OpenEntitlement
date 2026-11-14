@@ -1,0 +1,204 @@
+"""HTTP API, black-box: what any client of the service observes."""
+from __future__ import annotations
+
+import pytest
+from datetime import UTC, datetime
+
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+from pydantic import BaseModel
+
+from openentitlement_service.interfaces.http import Telemetry, create_app
+from openentitlement_service.repositories.memory import InMemoryStore
+
+PROBLEM = "application/problem+json"
+
+
+class TierInput(BaseModel):
+    name: str
+
+
+class ProductInput(BaseModel):
+    key: str
+    tiers: list[TierInput]
+
+PROBLEMS = "https://openentitlement.dev/problems/"
+NOW = datetime(2026, 11, 12, 9, 30, tzinfo=UTC)
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(create_app(InMemoryStore()), raise_server_exceptions=False)
+
+
+def test_health_check_answers_ok(client: TestClient) -> None:
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_unknown_api_route_is_a_not_found_problem(client: TestClient) -> None:
+    response = client.get("/api/nothing-here")
+    assert response.status_code == 404
+    assert response.headers["content-type"] == PROBLEM
+    assert response.json() == {
+        "type": PROBLEMS + "not-found",
+        "title": "Not found",
+        "status": 404,
+        "detail": "Nothing exists at this address.",
+        "instance": "/api/nothing-here",
+    }
+
+
+@pytest.fixture
+def probe_client() -> TestClient:
+    """The app with two probe routes, to observe how the one handler renders failures."""
+    app = create_app(InMemoryStore())
+
+    @app.post("/api/probe/products")
+    async def create(product: ProductInput) -> dict[str, str]:
+        return {"key": product.key}
+
+    @app.get("/api/probe/page")
+    async def page(limit: int = 10) -> dict[str, int]:
+        return {"limit": limit}
+
+    @app.get("/api/probe/teapot")
+    async def teapot() -> None:
+        raise HTTPException(status_code=418, detail="internal hint")
+
+    @app.get("/api/probe/boom")
+    async def boom() -> None:
+        raise RuntimeError("password=hunter2 at db.internal:5432")
+
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def test_rejected_body_is_one_validation_failed_problem_with_json_pointers(probe_client: TestClient) -> None:
+    response = probe_client.post("/api/probe/products", json={"tiers": [{"name": "Basic"}, {}]})
+    assert response.status_code == 400
+    assert response.headers["content-type"] == PROBLEM
+    body = response.json()
+    assert body["type"] == PROBLEMS + "validation-failed"
+    assert body["title"] == "Validation failed"
+    assert body["status"] == 400
+    assert body["instance"] == "/api/probe/products"
+    assert {e["pointer"] for e in body["errors"]} == {"/key", "/tiers/1/name"}
+    assert all(e["detail"] for e in body["errors"])
+
+
+def test_malformed_json_is_a_validation_failed_problem(probe_client: TestClient) -> None:
+    response = probe_client.post(
+        "/api/probe/products", content=b"{not json", headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["type"] == PROBLEMS + "validation-failed"
+    assert [e["pointer"] for e in body["errors"]] == [""]
+
+
+def test_rejected_query_parameter_names_its_location(probe_client: TestClient) -> None:
+    response = probe_client.get("/api/probe/page", params={"limit": "many"})
+    assert response.status_code == 400
+    assert [e["pointer"] for e in response.json()["errors"]] == ["/query/limit"]
+
+
+def test_unexpected_exception_is_a_generic_internal_error_that_exposes_nothing(probe_client: TestClient) -> None:
+    response = probe_client.get("/api/probe/boom")
+    assert response.status_code == 500
+    assert response.headers["content-type"] == PROBLEM
+    assert response.json() == {
+        "type": PROBLEMS + "internal-error",
+        "title": "Internal error",
+        "status": 500,
+        "detail": "The service failed to complete this request.",
+        "instance": "/api/probe/boom",
+    }
+    assert "hunter2" not in response.text and "RuntimeError" not in response.text
+
+
+def test_wrong_method_is_a_method_not_allowed_problem(client: TestClient) -> None:
+    response = client.delete("/healthz")
+    assert response.status_code == 405
+    assert response.headers["content-type"] == PROBLEM
+    assert response.headers["allow"] == "GET"
+    body = response.json()
+    assert body["type"] == PROBLEMS + "method-not-allowed"
+    assert body["method"] == "DELETE" and body["allowed"] == ["GET"]
+
+
+@pytest.fixture
+def console_client(tmp_path) -> TestClient:  # type: ignore[no-untyped-def]
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text("<!doctype html><title>OpenEntitlement</title>")
+    (tmp_path / "assets" / "app.js").write_text("console.log('console')")
+    return TestClient(create_app(InMemoryStore(), console_dir=tmp_path), raise_server_exceptions=False)
+
+
+def test_serves_the_built_console(console_client: TestClient) -> None:
+    assert "OpenEntitlement" in console_client.get("/").text
+    asset = console_client.get("/assets/app.js")
+    assert asset.status_code == 200 and "console" in asset.text
+
+
+def test_console_routes_fall_back_to_the_console_page(console_client: TestClient) -> None:
+    response = console_client.get("/workspaces/acme/catalog")
+    assert response.status_code == 200
+    assert "OpenEntitlement" in response.text
+
+
+def test_api_addresses_never_fall_back_to_the_console(console_client: TestClient) -> None:
+    for path in ("/api/nothing", "/oerep/v1/nothing", "/mcp/nothing"):
+        response = console_client.get(path)
+        assert response.status_code == 404, path
+        assert response.headers["content-type"] == PROBLEM
+
+
+def test_console_never_serves_files_outside_its_directory(console_client: TestClient, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    (tmp_path.parent / "secret.txt").write_text("secret")
+    response = console_client.get("/..%2Fsecret.txt")
+    assert "secret" not in response.text
+
+
+def test_console_pages_carry_a_content_security_policy(console_client: TestClient) -> None:
+    for path in ("/", "/assets/app.js", "/app/workspaces"):
+        headers = console_client.get(path).headers
+        policy = headers["content-security-policy"]
+        assert "default-src 'self'" in policy and "script-src 'self'" in policy and "frame-ancestors 'none'" in policy
+        assert "posthog" not in policy and "blob:" not in policy
+        assert headers["x-content-type-options"] == "nosniff"
+        assert headers["referrer-policy"] == "same-origin"
+
+
+def test_telemetry_is_off_unless_configured(console_client: TestClient) -> None:
+    response = console_client.get("/telemetry.json")
+    assert response.status_code == 200 and response.json() == {}
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_configured_telemetry_reaches_the_console_and_its_policy(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    (tmp_path / "index.html").write_text("<!doctype html><title>OpenEntitlement</title>")
+    telemetry = Telemetry(key="phc_abc123", host="https://eu.i.posthog.com")
+    client = TestClient(create_app(InMemoryStore(), console_dir=tmp_path, telemetry=telemetry))
+    assert client.get("/telemetry.json").json() == {"posthog": {"key": "phc_abc123", "host": "https://eu.i.posthog.com"}}
+    policy = client.get("/").headers["content-security-policy"]
+    assert "connect-src 'self' https://eu.i.posthog.com" in policy and "worker-src 'self' blob:" in policy
+
+
+def test_unknown_api_address_is_not_found_for_any_method(console_client: TestClient) -> None:
+    response = console_client.post("/api/nothing", json={})
+    assert response.status_code == 404
+    assert response.json()["type"] == PROBLEMS + "not-found"
+
+
+def test_other_http_errors_are_plain_problems_not_internal_errors(probe_client: TestClient) -> None:
+    response = probe_client.get("/api/probe/teapot")
+    assert response.status_code == 418
+    assert response.headers["content-type"] == PROBLEM
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "I'm a Teapot",
+        "status": 418,
+        "instance": "/api/probe/teapot",
+    }
+    assert "internal hint" not in response.text

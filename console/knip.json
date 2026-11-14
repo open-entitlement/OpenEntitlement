@@ -6,10 +6,12 @@
     ".storybook/*.ts"
   ],
   "project": [
-    "server/**/*.ts",
     "web/src/**/*.{ts,tsx}",
     "test/**/*.ts",
     "dev/**/*.ts",
     ".storybook/*.ts"
+  ],
+  "ignoreBinaries": [
+    "uv"
   ]
 }
