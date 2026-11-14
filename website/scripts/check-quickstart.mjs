@@ -45,13 +45,15 @@ try {
     })));
     const [command, output] = blocks.slice(-2);
     assert.equal(command.language, 'sh');
-    assert.match(command.text, /^node --conditions=source quickstart\.ts$/m);
-    assert.equal(output.text, 'hooli 3 PLAN\nacme 250 OVERRIDE');
+    assert.match(command.text, /node --conditions=source --input-type=module/);
+    assert.match(command.text, /product:'acme_product'/);
+    assert.match(command.text, /token:process.env.OE_API_KEY/);
+    assert.equal(output.text, '25');
     // Copy buttons are what the docs_code_copied event listens to.
     assert.equal(await page.locator('main .expressive-code .copy button').count(), blocks.length);
-    // Only what main runs today: no package install and no unreleased Product-scoped OEREP paths.
+    // Source checkout commands and explicit Product credentials.
     const text = await page.locator('main').innerText();
-    assert.doesNotMatch(text, /pip install|npm install @openentitlement|\/products\//);
+    assert.doesNotMatch(text, /OE_SEED|OE_ADMIN_TOKEN|npm install @openentitlement/);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `overflow at ${width}`);
     await page.close();
   }

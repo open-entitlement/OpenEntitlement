@@ -6,27 +6,25 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev:server": "node --conditions=source --watch server/main.ts",
+    "dev:server": "uv run --project ../sdk-python --locked openentitlement-service",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
-    "start": "node --conditions=source server/main.ts",
+    "start": "uv run --project ../sdk-python --locked openentitlement-service",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --conditions=source --test 'test/**/*.test.ts'",
-    "test:setup": "node --conditions=source test/setup-browser.mjs",
-    "start:workspace": "node --conditions=source server/workspace/main.ts",
+    "test:setup": "npm run test:python-service",
     "dev:issuer": "node dev/issuer.ts",
     "storybook": "storybook dev -p 6006 --host 127.0.0.1 --disable-telemetry",
     "build:storybook": "storybook build --disable-telemetry -o build/storybook",
-    "test:workspaces": "node --conditions=source test/workspace-browser.mjs",
+    "test:workspaces": "npm run test:python-service",
     "test:storybook": "node test/storybook-browser.mjs",
-    "test:python-service": "node --conditions=source test/python-service-browser.mjs"
+    "test:python-service": "node --conditions=source test/python-service-browser.mjs",
+    "test:quickstart": "node --conditions=source test/python-service-browser.mjs"
   },
   "dependencies": {
     "@openentitlement/core": "file:../sdk-js/packages/core",
-    "openid-client": "6.8.9",
     "pg": "^8.13.0",
     "posthog-js": "1.447.6",
-    "posthog-node": "5.64.0",
     "yaml": "2.9.1",
     "zod": "4.6.7"
   },

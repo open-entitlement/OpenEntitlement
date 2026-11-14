@@ -16,3 +16,13 @@
 **/.env
 **/.env.*
 **/build
+
+!sdk-python/
+!sdk-python/**
+**/.venv
+**/__pycache__
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/build

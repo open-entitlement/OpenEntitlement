@@ -1,6 +1,7 @@
 /** The console against the Python service: real OIDC sign-in, Workspace creation, switcher, Product selector, Catalog, Tiers, Organizations, application users, Settings (Members, invitations, Cloud service tier), sign-out. */
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
+import {Catalog, RemoteProvider, createClient} from '@openentitlement/core';
 import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import {resolve} from 'node:path';
@@ -18,7 +19,13 @@ try{
  await admin.query(`CREATE DATABASE ${name}`);database=true;
  const url=new URL(process.env.OE_PG_DSN);url.pathname='/'+name;
  const appPort=await port(),app=`http://localhost:${appPort}`;issuer=await startDevIssuer(await port(),app);
+ const serviceEnv={DATABASE_URL:url.href,PORT:String(appPort),OE_HOST:'127.0.0.1',OE_APP_URL:app,OE_OIDC_ISSUER:issuer.url,OE_OIDC_LOCAL_HTTP:'true',OE_PLATFORM_ADMIN_SUBJECT:'local-admin',OE_DEPLOYMENT_MODE:'saas'};
+ if(process.env.OE_TEST_IMAGE){
+  service=spawn('docker',['run','--rm','--network','host',...Object.entries(serviceEnv).flatMap(([k,v])=>['-e',`${k}=${v}`]),process.env.OE_TEST_IMAGE],{cwd:root});
+ }else{
  service=spawn('uv',['run','--project',resolve(root,'sdk-python'),'--locked','openentitlement-service'],{cwd:root,env:{...process.env,DATABASE_URL:url.href,PORT:String(appPort),OE_HOST:'127.0.0.1',OE_APP_URL:app,OE_OIDC_ISSUER:issuer.url,OE_OIDC_LOCAL_HTTP:'true',OE_PLATFORM_ADMIN_SUBJECT:'local-admin',OE_DEPLOYMENT_MODE:'saas',OE_CONSOLE_DIR:resolve(root,'console/web/dist')}});
+ }
+
  service.stdout.on('data',d=>logs.push(String(d)));service.stderr.on('data',d=>logs.push(String(d)));
  const exited=new Promise(ok=>service.once('exit',ok));
  for(let i=0;;i++){
@@ -297,6 +304,11 @@ await page.getByRole('heading',{name:'Define your first privilege',exact:true}).
  const evaluated=await evaluate('acme_product');assert.equal(evaluated.status(),200);
  assert.equal((await evaluated.json()).privileges.find(p=>p.privilege==='seats').value,25);
  assert.equal((await evaluate('storage')).status(),403,'A key evaluates its own Product only');
+ const sdkCatalog=Catalog.fromJSON({features:[{code:'limits',name:'Limits',privileges:[{key:'seats',valueType:'integer',default:0}]}]});
+ const sdk=createClient({catalog:sdkCatalog,provider:new RemoteProvider({baseUrl:app,product:'acme_product',token:secret})});
+ assert.equal(await sdk.getLimit('seats',{organizationId:'acme'}),25);
+ console.log('Product SDK: acme_product / acme / seats = 25');
+
  await page.reload();await keys.getByText('Billing app',{exact:true}).waitFor();assert.equal(await page.getByLabel('Save this secret securely').count(),0,'The secret is shown once');
  await keys.getByRole('button',{name:'Revoke Billing app',exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click();

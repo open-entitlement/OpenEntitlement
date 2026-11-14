@@ -1,6 +1,6 @@
 # openentitlement-service
 
-The Python service that replaces the Node service in `console/server` ([ADR-0009](../../../ADR-0009.md)). It is in development on the `service/python` branch and is not released.
+The Python reference service ([ADR-0009](../../../ADR-0009.md)). The root Dockerfile ships this runtime and the React console. This is preview source behavior, not a claim about previously released images.
 
 It has three layers, and dependencies point inward:
 

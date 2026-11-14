@@ -61,7 +61,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -f service.Dockerfile -t openentitlement-service:ci .
+      - run: docker build -t openentitlement-service:ci .
       - name: The image migrates its database at startup and answers its health check
         run: |
           docker run -d --name oe --network host -e PORT=8787 \
@@ -145,8 +145,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:setup
-      - run: npm run test:workspaces
       - run: npm run build:storybook
       - run: npm run test:storybook
 

@@ -1,6 +1,7 @@
+# Compatibility build path; keep identical to the published Dockerfile.
 # syntax=docker/dockerfile:1
 # The Python service (ADR-0009): the HTTP API serving the built React console.
-# Build from the repository root: docker build -f service.Dockerfile .
+# Build from the repository root: docker build .
 FROM node:24-bookworm-slim AS console
 WORKDIR /app
 COPY sdk-js/tsconfig.base.json ./sdk-js/tsconfig.base.json
