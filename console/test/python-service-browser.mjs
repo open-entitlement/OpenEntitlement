@@ -1,6 +1,6 @@
 /** The console against the Python service: real OIDC sign-in, Workspace creation, switcher, Product selector, Catalog, Tiers, Organizations, application users, Settings (Members, invitations, Cloud service tier), sign-out. */
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {Catalog, RemoteProvider, createClient} from '@openentitlement/core';
 import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
@@ -37,7 +37,7 @@ try{
  browser=await chromium.launch();
  const pageErrors=[];
  async function signIn(identity){const context=await browser.newContext();const p=await context.newPage();p.setDefaultTimeout(10000);p.on('pageerror',e=>pageErrors.push(e.message));
-  await p.goto(app+'/app/');await p.getByRole('link',{name:'Sign in',exact:true}).click();await p.locator('[name=login]').fill(identity);await p.locator('[name=password]').fill('local');await p.getByRole('button',{name:/sign.in/i}).click();if(p.url().includes('interaction'))await p.getByRole('button',{name:/continue/i}).click();
+  await p.goto(app+(identity==='local-admin'?'/':'/app/'));await p.getByRole('link',{name:'Sign in',exact:true}).click();await p.locator('[name=login]').fill(identity);await p.locator('[name=password]').fill('local');await p.getByRole('button',{name:/sign.in/i}).click();if(p.url().includes('interaction'))await p.getByRole('button',{name:/continue/i}).click();
   await p.getByRole('heading',{name:'Create a workspace',exact:true}).waitFor();return p;}
  async function csrfHeaders(p){const session=await (await p.request.get(app+'/api/session')).json();return {origin:app,'x-oe-csrf':session.csrf};}
 
@@ -308,6 +308,11 @@ await page.getByRole('heading',{name:'Define your first privilege',exact:true}).
  const sdk=createClient({catalog:sdkCatalog,provider:new RemoteProvider({baseUrl:app,product:'acme_product',token:secret})});
  assert.equal(await sdk.getLimit('seats',{organizationId:'acme'}),25);
  console.log('Product SDK: acme_product / acme / seats = 25');
+ const pythonSdk=spawnSync('uv',['run','--project',resolve(root,'sdk-python'),'--locked','python',resolve(root,'sdk-python/scripts/product_smoke.py')],{cwd:root,input:JSON.stringify({url:app,product:'acme_product',token:secret}),encoding:'utf8'});
+ assert.equal(pythonSdk.status,0,pythonSdk.stderr);
+ assert.equal(pythonSdk.stdout.trim(),'Python Product SDK: acme_product / acme / seats = 25');
+ console.log(pythonSdk.stdout.trim());
+
 
  await page.reload();await keys.getByText('Billing app',{exact:true}).waitFor();assert.equal(await page.getByLabel('Save this secret securely').count(),0,'The secret is shown once');
  await keys.getByRole('button',{name:'Revoke Billing app',exact:true}).click();

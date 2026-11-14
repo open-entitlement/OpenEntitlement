@@ -3,7 +3,7 @@ title: TypeScript SDK
 description: Connect a TypeScript application to an OEREP service with the reference SDK.
 ---
 
-The Product-bound RemoteProvider shown here is an unreleased `service/python` preview. It requires the Python service’s Product API key and does not connect directly to the historical Node demo.
+The Product-bound RemoteProvider shown here is preview source behavior. It requires the Python service’s Product API key and does not connect directly to the historical Node demo.
 
 
 The core SDK uses the platform `fetch` API. Its one runtime dependency is [Zod](https://zod.dev), which validates Privilege Catalogs in `@openentitlement/core/authoring`; `npm install @openentitlement/core` installs it. Start from a source checkout; package publication is not assumed here.
@@ -20,25 +20,21 @@ npm ci
 Save the example below as `sdk-js/example.ts`, and run it with `node --conditions=source example.ts`. Start the [demo server](/docs/quickstart/) first.
 
 ```ts
-import { readFileSync } from 'node:fs';
 import { Catalog, createClient, RemoteProvider } from '@openentitlement/core';
 
-const catalog = Catalog.fromJSON(JSON.parse(
-  readFileSync(new URL('../spec/assets/catalog.json', import.meta.url), 'utf8')
-));
+const catalog = Catalog.fromJSON({features:[{code:'limits',name:'Limits',privileges:[{key:'seats',valueType:'integer',default:0}]}]});
 const client = createClient({
   catalog,
-  provider: new RemoteProvider({ product: "analytics",
-    baseUrl: 'http://localhost:8787',
-    token: process.env.OE_EVAL_TOKEN,
+  provider: new RemoteProvider({ product: "acme_product",
+    baseUrl: 'http://localhost:18789',
+    token: process.env.OE_API_KEY,
     timeoutMs: 5000,
   }),
 });
 
 const context = { organizationId: 'acme' };
-console.log(await client.getLimit('seat_max', context)); // 250
-console.log(await client.isEnabled('sso', context));      // true
-console.log(await client.getDetails('seat_max', context));
+console.log(await client.getLimit('seats', context)); // 25
+console.log(await client.getDetails('seats', context));
 ```
 
 ## Gate a request
@@ -72,9 +68,9 @@ Timeouts, HTTP failures, malformed responses, and catalog mismatches become eval
 The remote provider makes one HTTP call per evaluation unless you opt in to a short-lived decision cache:
 
 ```ts
-const provider = new RemoteProvider({ product: "analytics",
-  baseUrl: 'http://localhost:8787',
-  token: process.env.OE_EVAL_TOKEN,
+const provider = new RemoteProvider({ product: "acme_product",
+  baseUrl: 'http://localhost:18789',
+  token: process.env.OE_API_KEY,
   cacheTtlMs: 10_000,     // off when omitted; must be positive and finite
   cacheMaxEntries: 10_000, // default; least recently used entries are evicted
 });
