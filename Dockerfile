@@ -3,13 +3,16 @@
 # Build from the repository root: docker build .
 FROM node:24-bookworm-slim AS console
 WORKDIR /app
+COPY sdk-js/package*.json ./sdk-js/
 COPY sdk-js/tsconfig.base.json ./sdk-js/tsconfig.base.json
 COPY sdk-js/packages/core/ ./sdk-js/packages/core/
-COPY console/package*.json ./console/
+WORKDIR /app/sdk-js
+RUN npm ci
+COPY console/package*.json /app/console/
 WORKDIR /app/console
 RUN npm ci
 COPY console/ ./
-RUN ln -s ../console/node_modules /app/sdk-js/node_modules && npm run build
+RUN npm run build
 
 FROM python:3.12-slim-bookworm AS service
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /bin/uv

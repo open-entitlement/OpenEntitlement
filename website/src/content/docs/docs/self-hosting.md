@@ -23,3 +23,22 @@ See the repository's `sdk-python/packages/service/README.md` for the complete
 settings and row-level-security requirements. Use TLS at the reverse proxy.
 Telemetry is disabled unless explicitly enabled. Read-only evaluation does not
 charge, allocate licenses or consume application quota.
+
+Both Compose examples bind the published port to `127.0.0.1` and default
+`OE_APP_URL` to `http://localhost:8787`, with `OE_OIDC_LOCAL_HTTP=true` for
+local development. The service still rejects HTTP app or issuer origins outside
+loopback. An HTTPS issuer works with this local HTTP console. Register the exact
+`http://localhost:8787/auth/callback` redirect with your issuer. A loopback issuer
+URL must be reachable from inside the container too; the host's localhost is not
+the container's localhost.
+
+For a TLS deployment, set `OE_APP_URL=https://console.example.com` and
+`OE_OIDC_LOCAL_HTTP=false`, use an HTTPS issuer and register
+`https://console.example.com/auth/callback`. Terminate TLS at a reverse proxy
+that can reach the published loopback port. HTTPS app origins produce Secure
+session cookies; HTTP local development cookies are not Secure.
+
+The Python switch-over currently lacks the previous contract records, private PDF
+upload/download and evidence-linking API and Organization panel. This is an
+outstanding parity blocker, not a removal of that capability from the product.
+Do not use the preview as a replacement for a deployment relying on those features.

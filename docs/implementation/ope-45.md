@@ -1,31 +1,61 @@
 # OPE-45 switch-over work record
 
-Status: incomplete implementation; integration preview, not a released Python runtime.
+Status: integration preview; not complete or released. Contract/PDF parity and
+fresh conductor review remain required before accepting the switch-over.
 
-Recovered the failed Opus implementation without modifying its checkout. The closing
-branch starts at service/python 81db393 and merges main with no content changes:
-OPE-70 already incorporated that main content and its integration fixes must remain.
+The root `Dockerfile`, Compose examples and `npm start` now launch Python and
+serve the compiled React Workspace console. The Node server and temporary model
+re-exports are retired; shared browser models live under `console/web/src`.
+The root Docker build installs the SDK workspace's locked dependencies in
+`/app/sdk-js`, then the console's in `/app/console`; it does not borrow console
+dependencies through a symlink. SDK source exports are compiled by Vite.
 
-Recovered slices:
+Product-bound quickstart and both SDK outputs are covered by the real-OIDC
+browser regression, also run against the publication image in Linux CI.
+Integration/security/browser fixes from OPE-70 remain part of this branch.
+Read-only values remain inert and RFC-0006 remains proposed.
 
-- Python console security headers and opt-in public telemetry configuration, with HTTP
-  and startup tests.
-- Postgres restart/session persistence and idle connection recovery HTTP regression.
-- React model imports moved into the web tree; temporary re-exports keep the old Node
-  paths usable until retirement is complete.
+## Contract and private PDF parity blocker
 
-Still required: Python publication and container smoke tests with a Product-scoped
-SDK client; Compose and launch switch; Product quickstart and fresh-clone output;
-Node retirement and black-box parity coverage; browser, Storybook, both SDK
-conformance and Postgres validation; documentation and PRD delivery status updates;
-whole-diff Spec/Standards review by the conductor.
+The prior accepted implementation (#13, main's `console/server/contracts-api.ts`,
+`contracts-store.ts`, `console/test/contracts.test.ts` and
+`console/web/src/contracts.tsx`) supports:
 
-Pending decisions from the conductor's new question batch (RFC-0006 and retaining
-inert read-only defaults) are not answered by ADR-0010's older fourteen approvals.
-Preserve current Python behavior until those answers are recorded. Do not mark
-OPE-45 Done or change a protocol contract based on this recovery.
+- Create/list/read/update Organization contract metadata, external references,
+  status and dates, with reasons and history; dates do not affect evaluation.
+- Private PDF upload/download, 10 MiB and 20-document limits, PDF marker and type
+  checks, SHA-256 metadata and attachment/no-store/sandbox download headers.
+- Evidence links to existing Organization overrides or grants, optional PDF/page
+  and notes, rejecting foreign sources/documents and invalid pages.
+- Transactional metadata/PDF/history persistence, concurrent uploads and restart
+  survival in Postgres; anonymous/evaluation credentials cannot access documents.
+- An Organization panel for the complete flow.
 
-Local recovery checks: console typecheck passed; targeted Python startup/HTTP/restart
-suite: 32 passed, 4 skipped (Postgres was not configured), one Starlette deprecation
-warning; service Ruff passed. No local image verification: Docker pulls unavailable
-per the task brief. Full delivery validation remains owed.
+Python has no corresponding tables/migration, repository protocols/adapters,
+service operations or HTTP routes; WorkspaceApp does not mount ContractsPanel.
+The legacy panel/types remain in source but do not establish runtime support.
+This is substantial missing functionality, not a documentation-only discrepancy.
+The old global admin-token API and caller-supplied actor cannot simply be mounted
+in the authenticated Workspace service. Evidence IDs must map to current
+Product-scoped Organization terms and application-user Grants. The implementation
+must retain Workspace isolation and actual authenticated audit actors.
+
+Concrete options for the conductor/owner:
+
+1. Keep OPE-45 blocked while implementing Python contract/evidence repositories,
+   Workspace/Product authorization, typed service operations and routes, private
+   document storage and the Organization UI. Restore the prior regression matrix
+   with cross-Workspace/Product refusals, authenticated audit, transactional
+   concurrency/restart tests and a real-OIDC upload/link/download browser test.
+2. Split the launch switch from the integration and keep the existing Node launch
+   as the default until equivalent Python functionality passes that matrix.
+
+Neither option removes the approved capability. No reduced-scope rollout is
+approved here; the PRD retains its historical implementation and names the gap.
+Do not mark OPE-45 Done or merge this switch-over on documentation changes alone.
+
+## Validation
+
+See the PR finding response for commands/results pinned to the fixing head.
+Required Linux image/browser/SDK parity and fresh conductor Spec/Standards review
+are still owed. Prior implementation evidence is not a result for a new head.

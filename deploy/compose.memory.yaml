@@ -6,7 +6,9 @@ services:
     ports: ["127.0.0.1:8787:8787"]
     environment:
       OE_IN_MEMORY: "true"
-      OE_APP_URL: http://localhost:8787
+      OE_APP_URL: ${OE_APP_URL:-http://localhost:8787}
+      # HTTP is accepted only for loopback origins; use false with TLS deployments.
+      OE_OIDC_LOCAL_HTTP: ${OE_OIDC_LOCAL_HTTP:-true}
       OE_OIDC_ISSUER: ${OE_OIDC_ISSUER:-}
       OE_OIDC_CLIENT_ID: ${OE_OIDC_CLIENT_ID:-openentitlement}
       OE_PLATFORM_ADMIN_SUBJECT: ${OE_PLATFORM_ADMIN_SUBJECT:-}
