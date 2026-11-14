@@ -19,7 +19,7 @@ try{
  await admin.query(`CREATE DATABASE ${name}`);database=true;
  const url=new URL(process.env.OE_PG_DSN);url.pathname='/'+name;
  const appPort=await port(),app=`http://localhost:${appPort}`;issuer=await startDevIssuer(await port(),app);
- const serviceEnv={DATABASE_URL:url.href,PORT:String(appPort),OE_HOST:'127.0.0.1',OE_APP_URL:app,OE_OIDC_ISSUER:issuer.url,OE_OIDC_LOCAL_HTTP:'true',OE_PLATFORM_ADMIN_SUBJECT:'local-admin',OE_DEPLOYMENT_MODE:'saas'};
+ const serviceEnv={DATABASE_URL:url.href,PORT:String(appPort),OE_HOST:process.env.OE_TEST_IMAGE?'0.0.0.0':'127.0.0.1',OE_APP_URL:app,OE_OIDC_ISSUER:issuer.url,OE_OIDC_LOCAL_HTTP:'true',OE_PLATFORM_ADMIN_SUBJECT:'local-admin',OE_DEPLOYMENT_MODE:'saas'};
  if(process.env.OE_TEST_IMAGE){
   service=spawn('docker',['run','--rm','--network','host',...Object.entries(serviceEnv).flatMap(([k,v])=>['-e',`${k}=${v}`]),process.env.OE_TEST_IMAGE],{cwd:root});
  }else{
@@ -233,6 +233,22 @@ try{
  await page.getByRole('link',{name:'Organizations',exact:true}).click();await acmeCard.click();
  await page.getByRole('button',{name:'Edit organization',exact:true}).click();await page.getByLabel('Contract status').selectOption('active');
  await saveOrganization.click();await saveOrganization.waitFor({state:'hidden'});await acmeCard.getByText('Pro standard · Active').waitFor();
+ // Private contract flow uses the authenticated Workspace session, including raw PDF CSRF.
+ await page.getByLabel('Agreement title').fill('Acme agreement');
+ await page.getByRole('button',{name:'Create contract',exact:true}).click();await reason();
+ await page.getByRole('heading',{name:'Acme agreement',exact:true}).waitFor();
+ const privatePdf=Buffer.from('%PDF-1.7\nprivate browser agreement\n%%EOF');
+ await page.getByLabel('Attach PDF (maximum 10 MiB)').setInputFiles({name:'agreement.pdf',mimeType:'application/pdf',buffer:privatePdf});
+ await page.getByRole('button',{name:'Attach PDF',exact:true}).click();await reason();
+ await page.getByRole('button',{name:'Download agreement.pdf',exact:true}).waitFor();
+ const downloadPromise=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download agreement.pdf',exact:true}).click();
+ assert.equal((await downloadPromise).suggestedFilename(),'agreement.pdf');
+ await page.getByLabel('Override or grant').selectOption('override:terms:seats');
+ await page.getByLabel('Supporting PDF').selectOption({label:'agreement.pdf'});
+ await page.getByLabel('Page (optional)').fill('1');
+ await page.getByRole('button',{name:'Link evidence',exact:true}).click();await reason();
+ await page.getByText('Contract history (3)',{exact:true}).waitFor();
  const saveUser=page.getByRole('button',{name:'Save user entitlements',exact:true});
  await page.getByRole('button',{name:'Add user',exact:true}).click();await assertFormLayout(page);
  await page.getByLabel('User display name').fill('Alice');await page.getByLabel('Subject ID').fill('idp|alice');

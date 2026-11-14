@@ -9,6 +9,9 @@ Workspace and have no row-level security.
 """
 from __future__ import annotations
 
+from ...services.contracts import Contract
+from .tables import contracts, contract_documents
+
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -683,6 +686,42 @@ class PostgresOrganizationsRepository:
             raise StaleVersion(user.subject_id)
 
 
+class PostgresContractsRepository:
+    def __init__(self, connection: AsyncConnection, workspace: UUID | None) -> None:
+        self.connection, self.workspace = connection, workspace
+
+    async def list(self, product: UUID, organization: str) -> Sequence[Contract]:
+        query = select(contracts.c.entry).where(contracts.c.workspace_id == self.workspace,
+            contracts.c.product_id == product, contracts.c.organization_id == organization)
+        return [Contract.model_validate(row) for row in (await self.connection.execute(query)).scalars()]
+
+    async def get(self, id: UUID) -> Contract | None:
+        row = (await self.connection.execute(select(contracts.c.entry).where(
+            contracts.c.workspace_id == self.workspace, contracts.c.id == id))).scalar_one_or_none()
+        return Contract.model_validate(row) if row else None
+
+    async def save(self, contract: Contract, *, expected_version: int) -> None:
+        ensure_bound_workspace(self.workspace, contract.workspace_id)
+        values = dict(version=contract.version, entry=contract.model_dump(mode="json"))
+        if expected_version == 0:
+            await _insert(self.connection, contracts.insert().values(workspace_id=self.workspace,
+                id=contract.id, product_id=contract.product_id, organization_id=contract.organization_id, **values))
+        else:
+            result = await self.connection.execute(contracts.update().where(contracts.c.workspace_id == self.workspace,
+                contracts.c.id == contract.id, contracts.c.version == expected_version).values(**values))
+            if result.rowcount != 1:
+                raise StaleVersion(str(contract.id))
+
+    async def put_document(self, contract: UUID, id: UUID, content: bytes) -> None:
+        await self.connection.execute(contract_documents.insert().values(workspace_id=self.workspace,
+            contract_id=contract, id=id, content=content))
+
+    async def document(self, contract: UUID, id: UUID) -> bytes | None:
+        return (await self.connection.execute(select(contract_documents.c.content).where(
+            contract_documents.c.workspace_id == self.workspace, contract_documents.c.contract_id == contract,
+            contract_documents.c.id == id))).scalar_one_or_none()
+
+
 @dataclass(frozen=True)
 class PostgresRepositories(Repositories):
     """The repositories of one transaction, plus that transaction's connection."""
@@ -722,6 +761,7 @@ class PostgresStore:
                 directory=PostgresDirectoryRepository(connection, account_id),
                 invitations=PostgresInvitationsRepository(connection, workspace_id),
                 audit=PostgresAuditRepository(connection, workspace_id),
+                contracts=PostgresContractsRepository(connection, workspace_id),
                 api_keys=PostgresApiKeysRepository(connection, workspace_id),
                 connection=connection,
             )

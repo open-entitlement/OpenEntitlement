@@ -50,4 +50,4 @@ def test_compose_sign_in_settings(deployment: str, mode: str) -> None:
     assert settings.sign_in.oidc.secure_cookies == (mode == "tls")
     # Compose's Postgres host need not be running to construct the real app and routes.
     app = build_app(settings, migrate_at_startup=False)
-    assert TestClient(app).get("/auth/logout").status_code == 405
+    assert TestClient(app).post("/auth/logout").status_code == 401

@@ -153,7 +153,7 @@ def test_migrations_have_one_head() -> None:
     from openentitlement_service.repositories.postgres.migrate import MIGRATIONS, alembic_config
 
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
-    assert script.get_heads() == ["0009_merge_audit_api_keys"], MIGRATIONS
+    assert script.get_heads() == ["0010_contracts"], MIGRATIONS
 
 
 @pytest.mark.parametrize("first", ["0008_audit_log", "0008_api_keys"])

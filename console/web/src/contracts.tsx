@@ -1,10 +1,12 @@
+import { trackWrite, useUnsavedChanges } from "./workspace/unsaved.ts";
 import { useEffect, useState } from "react";
 import type { Contract } from "../../contracts.ts";
-import { api, documentRequest, token } from "./api.ts";
+import { request, privateDocument as documentRequest } from "./workspace/client.ts";
+const api=<T,>(method:string,path:string,body?:unknown)=>request<T>(path,method,body);
 import { useReason, useToast } from "./ui.tsx";
 
 type Entity = { id: string; privilege: string };
-export function ContractsPanel({ organizationId, overrides, grants }: { organizationId: string; overrides: Entity[]; grants: Entity[] }) {
+export function ContractsPanel({ organizationId, basePath, overrides, grants }: { organizationId: string; basePath: string; overrides: Entity[]; grants: Entity[] }) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [error, setError] = useState("");
   const [title, setTitle] = useState("");
@@ -12,8 +14,9 @@ export function ContractsPanel({ organizationId, overrides, grants }: { organiza
   const [system, setSystem] = useState("");
   const [externalReference, setExternalReference] = useState("");
   const [busy, setBusy] = useState(false);
+  useUnsavedChanges(true, {title, reference, system, externalReference});
   const ask = useReason(), toast = useToast();
-  const path = "/api/contracts?organizationId=" + encodeURIComponent(organizationId);
+  const path = basePath;
   const reload = async () => setContracts(await api<Contract[]>("GET", path));
   useEffect(() => {
     let active = true;
@@ -23,17 +26,16 @@ export function ContractsPanel({ organizationId, overrides, grants }: { organiza
   const change = async (label: string, action: (reason: string) => Promise<unknown>) => {
     const reason = await ask(label); if (!reason) return;
     setBusy(true);
-    try { await action(reason); await reload(); toast("Contract change saved and recorded"); }
+    try { await trackWrite(action(reason)); await reload(); toast("Contract change saved and recorded"); }
     catch (e) { toast(String(e), "err"); }
     finally { setBusy(false); }
   };
   return <section className="panel contracts-panel"><div className="section-title"><h2>Contracts &amp; source documents</h2><span className="muted">{organizationId}</span></div>
     <p>Link negotiated entitlements to the agreement behind them. Documents and contract dates do not change entitlement values.</p>
-    {error && <p role="alert" className="notice error">{error}. Contracts require a server configured with an admin token. Enter that token in Settings.</p>}
-    {!token.get() && !error && <p className="notice">Connect with an admin token to manage private contracts.</p>}
+    {error && <p role="alert" className="notice error">{error}. </p>}
     {!error && <>
       <form className="contract-create" onSubmit={e => { e.preventDefault(); void change("Create customer contract", async reason => {
-        await api("POST", "/api/contracts", { organizationId, title, reference, externalReferences: system && externalReference ? [{ system, reference: externalReference }] : [], reason });
+        await api("POST", basePath, { title, reference, externalReferences: system && externalReference ? [{ system, reference: externalReference }] : [], reason });
         setTitle(""); setReference(""); setSystem(""); setExternalReference("");
       }); }}>
         <div className="two-cols"><label>Agreement title<input required maxLength={500} value={title} onChange={e => setTitle(e.target.value)}/></label><label>Contract reference<input maxLength={500} value={reference} onChange={e => setReference(e.target.value)}/></label></div>
@@ -41,11 +43,11 @@ export function ContractsPanel({ organizationId, overrides, grants }: { organiza
         <button className="btn" disabled={busy || !title.trim() || Boolean(system.trim()) !== Boolean(externalReference.trim())}>Create contract</button>
       </form>
       {!contracts.length && <p className="muted">No contracts for this organization yet.</p>}
-      {contracts.map(c => <ContractCard key={c.id} contract={c} overrides={overrides} grants={grants} busy={busy} change={change}/>)}
+      {contracts.map(c => <ContractCard key={`${c.id}:${c.version}`} contract={c} basePath={basePath} overrides={overrides} grants={grants} busy={busy} change={change}/>)}
     </>}
   </section>;
 }
-function ContractCard({ contract: c, overrides, grants, busy, change }: { contract: Contract; overrides: Entity[]; grants: Entity[]; busy: boolean; change: (label: string, action: (reason: string) => Promise<unknown>) => Promise<void> }) {
+export function ContractCard({ contract: c, basePath, overrides, grants, busy, change }: { contract: Contract; basePath: string; overrides: Entity[]; grants: Entity[]; busy: boolean; change: (label: string, action: (reason: string) => Promise<unknown>) => Promise<void> }) {
   const [file, setFile] = useState<File>();
   const [entity, setEntity] = useState("");
   const [documentId, setDocumentId] = useState("");
@@ -54,8 +56,9 @@ function ContractCard({ contract: c, overrides, grants, busy, change }: { contra
   const [status, setStatus] = useState(c.status);
   const [start, setStart] = useState(c.startsAt?.slice(0, 10) ?? "");
   const [end, setEnd] = useState(c.endsAt?.slice(0, 10) ?? "");
+  useUnsavedChanges(true, {file:file?{name:file.name,size:file.size,lastModified:file.lastModified}:null,entity,documentId,page,note,status,start,end});
   const toast = useToast();
-  const path = "/api/contracts/" + c.id;
+  const path = basePath + "/" + c.id;
   const entities = [...overrides.map(e => ({ ...e, kind: "override" })), ...grants.map(e => ({ ...e, kind: "grant" }))];
   const download = async (id: string, filename: string) => {
     try {
@@ -67,7 +70,7 @@ function ContractCard({ contract: c, overrides, grants, busy, change }: { contra
   };
   return <article className="contract-card"><h3>{c.title}</h3><p><strong>{c.reference || "No reference"}</strong> · {c.status}</p>
     {c.externalReferences.map((r, i) => <p key={i}><code>{r.system}</code>: {r.reference}</p>)}
-    <form onSubmit={e => { e.preventDefault(); void change("Update contract record", reason => api("PATCH", path, { title: c.title, reference: c.reference, externalReferences: c.externalReferences, status, ...(start ? { startsAt: new Date(start).toISOString() } : {}), ...(end ? { endsAt: new Date(end).toISOString() } : {}), reason })); }}>
+    <form onSubmit={e => { e.preventDefault(); void change("Update contract record", reason => api("PATCH", path, { version: c.version, title: c.title, reference: c.reference, externalReferences: c.externalReferences, status, ...(start ? { startsAt: new Date(start).toISOString() } : {}), ...(end ? { endsAt: new Date(end).toISOString() } : {}), reason })); }}>
       <div className="two-cols"><label>Status<select value={status} onChange={e => setStatus(e.target.value as Contract["status"])}>{["draft", "active", "expired", "terminated"].map(s => <option key={s}>{s}</option>)}</select></label><label>Effective from (UTC)<input type="date" value={start} onChange={e => setStart(e.target.value)}/></label><label>Effective until (UTC)<input type="date" value={end} onChange={e => setEnd(e.target.value)}/></label></div>
       <button className="btn" disabled={busy}>Save contract dates / status</button>
     </form>

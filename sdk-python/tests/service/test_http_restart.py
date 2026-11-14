@@ -29,6 +29,16 @@ async def test_restart_keeps_data_and_sessions_and_survives_terminated_connectio
             product = await _sign_in(client, issuer, "alice")
             entry = {"key": "seats", "type": "integer", "title": "Seats", "default": 5}
             assert (await _privilege(client, product, entry)).status_code == 200
+            orgs = product.split('/products/')[0] + '/organizations'
+            assert (await client.post(orgs, json={"id":"acme", "name":"Acme"})).status_code == 201
+            contracts = product + '/organizations/acme/contracts'
+            c = (await client.post(contracts, json={"title":"Persisted", "reason":"Signed"})).json()
+            detail = contracts + '/' + c['id']
+            pdf = b'%PDF-1.7\nprivate\n%%EOF'
+            attached = await client.post(detail + '/documents?filename=agreement.pdf', content=pdf,
+                                        headers={'content-type':'application/pdf', 'x-oe-reason':'Signed'})
+            assert attached.status_code == 200
+            document = attached.json()['documents'][0]['id']
             cookies, headers = client.cookies, dict(client.headers)
     finally:
         await engine.dispose()
@@ -40,6 +50,10 @@ async def test_restart_keeps_data_and_sessions_and_survives_terminated_connectio
             # A new process on the same database: the session and the Catalog are still there.
             catalog = (await client.get(f"{product}/catalog")).json()
             assert catalog["catalog"]["privileges"][0]["default"] == 5
+
+            restored = (await client.get(detail)).json()
+            assert len(restored['history']) == 2
+            assert (await client.get(detail + '/documents/' + document)).content == pdf
 
             # Postgres terminates every idle connection (a restart, a failover, an idle timeout).
             name = make_url(clean_postgres_url).database

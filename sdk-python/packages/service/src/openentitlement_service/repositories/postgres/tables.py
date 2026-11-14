@@ -7,6 +7,7 @@ its own ``version`` for optimistic concurrency (ADR-0009).
 from __future__ import annotations
 
 from sqlalchemy import (
+    LargeBinary,
     Index,
     BigInteger,
     Boolean,
@@ -245,4 +246,26 @@ api_keys = Table(
     Column("created_by", Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+)
+
+contracts = Table(
+    "contracts", metadata,
+    Column("workspace_id", Uuid, nullable=False),
+    Column("id", Uuid, primary_key=True),
+    Column("product_id", Uuid, nullable=False),
+    Column("organization_id", Text, nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("entry", JSON, nullable=False),
+    UniqueConstraint("workspace_id", "id"),
+    ForeignKeyConstraint(["workspace_id", "product_id"], ["products.workspace_id", "products.id"], ondelete="CASCADE"),
+    ForeignKeyConstraint(["workspace_id", "organization_id"], ["organizations.workspace_id", "organizations.key"], ondelete="CASCADE"),
+)
+contract_documents = Table(
+    "contract_documents", metadata,
+    Column("workspace_id", Uuid, primary_key=True),
+    Column("contract_id", Uuid, primary_key=True),
+    Column("id", Uuid, primary_key=True),
+    Column("content", LargeBinary, nullable=False),
+    CheckConstraint("octet_length(content) <= 10485760", name="bounded_pdf"),
+    ForeignKeyConstraint(["workspace_id", "contract_id"], ["contracts.workspace_id", "contracts.id"], ondelete="CASCADE"),
 )

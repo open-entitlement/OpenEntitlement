@@ -8,3 +8,9 @@ export async function request<T=any>(path: string,method="GET",body?: unknown): 
   if(!response.ok)throw Object.assign(new Error(data.detail??data.message??"Request failed"),{status:response.status,type:data.type});
   return data;
 }
+
+export async function privateDocument(path:string,method="GET",body?:File,reason?:string):Promise<Response>{
+ const response=await fetch(path,{method,credentials:"same-origin",headers:{...(method!=="GET"?{"x-oe-csrf":csrf,"content-type":"application/pdf","x-oe-reason":encodeURIComponent(reason??"")}:{})},body});
+ if(!response.ok){const problem=await response.json();throw new Error(problem.detail??"Document request failed");}
+ return response;
+}

@@ -7,6 +7,7 @@ the Workspaces of the Account a transaction is bound to.
 """
 from __future__ import annotations
 
+
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from .models import (
 
 
 if TYPE_CHECKING:
+    from .contracts import Contract
     from .api_keys import ApiKey
     from .audit import AuditEntry
     from .catalog import CatalogRecord, VariantValues
@@ -337,7 +339,16 @@ class Repositories:
     directory: DirectoryRepository
     invitations: InvitationsRepository
     audit: AuditRepository
+    contracts: ContractsRepository
     api_keys: ApiKeysRepository
+
+
+class ContractsRepository(Protocol):
+    async def list(self, product: UUID, organization: str) -> Sequence[Contract]: ...
+    async def get(self, id: UUID) -> Contract | None: ...
+    async def save(self, contract: Contract, *, expected_version: int) -> None: ...
+    async def put_document(self, contract: UUID, id: UUID, content: bytes) -> None: ...
+    async def document(self, contract: UUID, id: UUID) -> bytes | None: ...
 
 
 class Store(Protocol):

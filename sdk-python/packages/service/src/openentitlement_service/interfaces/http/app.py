@@ -19,7 +19,7 @@ from ...services.sign_in import SignInPolicy, SignInService
 from ...services.evaluation import EvaluationService
 from ...services.members import MemberService
 from ...services.workspaces import Deployment, WorkspaceService, utcnow
-from . import api_keys, auth, problems, workspaces, catalog, members, oerep, tiers, organizations
+from . import contracts, api_keys, auth, problems, workspaces, catalog, members, oerep, tiers, organizations
 from . import audit
 from .telemetry import Telemetry, console_headers
 from .telemetry import router as telemetry_router
@@ -62,6 +62,7 @@ def create_app(
         service=SignInService(store, policy, clock=clock),
         oidc=OidcClient(sign_in.oidc, transport=oidc_transport) if sign_in else None,
     )
+    app.include_router(contracts.router)
     app.include_router(auth.router)
     app.include_router(workspaces.router)
     app.include_router(catalog.router)

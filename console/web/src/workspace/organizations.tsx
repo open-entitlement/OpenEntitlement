@@ -1,3 +1,4 @@
+import { ContractsPanel } from "../contracts.tsx";
 import { useState } from "react";
 import type { Workspace,Save } from "./app.tsx";
 import { type Organization } from "../model/model.ts";
@@ -6,7 +7,7 @@ import { ValuesEditor } from "./fields.tsx";
 import { FormField } from "../form.tsx";
 import { identifierFromTitle } from "./identifier.ts";
 import { useUnsavedChanges } from "./unsaved.ts";
-export function Organizations({workspace:w,save,canEdit,busy}:{workspace:Workspace;save:Save;canEdit:boolean;busy:boolean}){
+export function Organizations({workspace:w,productId,save,canEdit,busy}:{workspace:Workspace;productId?:string;save:Save;canEdit:boolean;busy:boolean}){
   // An archived Tier keeps its Organizations but is given to no other one (ADR-0008).
   const archived=(tierId:string)=>Boolean((w.data.tiers.find(t=>t.id===tierId) as {archivedAt?:string}|undefined)?.archivedAt);
   const offered=(current?:string)=>w.data.variants.filter(v=>v.kind!=="grace"&&(v.id===current||!archived(v.tierId)));
@@ -48,5 +49,6 @@ export function Organizations({workspace:w,save,canEdit,busy}:{workspace:Workspa
     {!show&&!userForm&&<div className="workspace-list">{w.data.organizations.map(o=><button className="workspace-card" key={o.id} aria-pressed={selected===o.id} onClick={()=>setSelected(o.id)}><strong>{o.name}</strong><small>{o.variantId?<>{w.data.variants.find(v=>v.id===o.variantId)?.name} · {o.status==="past_due"?"Past due":o.status==="ended"?"Ended":"Active"}</>:"No tier in this Product"}</small></button>)}</div>}
     {!show&&!userForm&&selectedOrg&&<section className="panel overflow"><div className="section-title"><h2>{selectedOrg.name}</h2>{canEdit&&<button className="btn" onClick={()=>edit(selectedOrg)}>Edit organization</button>}</div>{selectedOrg.variantId?<EffectiveEntitlements workspace={w} organizationId={selectedOrg.id}/>:<p>This Organization has no tier in this Product yet.</p>}</section>}
     {!show&&selectedOrg&&selectedOrg.variantId&&<SubjectEntitlements key={selectedOrg.id} workspace={w} organizationId={selectedOrg.id} save={save} canEdit={canEdit} busy={busy} onFormChange={setUserForm}/>}
+    {!show&&!userForm&&selectedOrg&&canEdit&&productId&&<ContractsPanel key={`contracts:${selectedOrg.id}`} organizationId={selectedOrg.id} basePath={`/api/workspaces/${w.id}/products/${productId}/organizations/${selectedOrg.id}/contracts`} overrides={Object.keys(selectedOrg.terms).map(key=>({id:`terms:${key}`,privilege:key}))} grants={w.data.subjects.filter(s=>s.organizationId===selectedOrg.id).flatMap(s=>Object.keys(s.grants).map(key=>({id:`grant:${s.subjectId}:${key}`,privilege:`${s.name}: ${key}`})))}/> }
   </>;
 }

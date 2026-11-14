@@ -7,7 +7,7 @@ export interface AuditEntry {
 }
 export interface AuditPage {entries:AuditEntry[]; next:number|null}
 const frActions:Record<string,string>={created:'a créé',changed:'a modifié',archived:'a archivé',restored:'a restauré',deleted:'a supprimé',removed:'a retiré',invited:'a invité',joined:'a rejoint',revoked:'a révoqué'};
-const frKinds:Record<string,string>={'Workspace':'l’espace de travail','Product':'le produit','Privilege':'le privilège','Group':'le groupe','Tag':'le tag','Tier':'le niveau','Tier variant':'la variante','Status policy':'la politique de statut','Organization':'l’organisation','Application user':'l’utilisateur applicatif','Member':'le membre','API key':'la clé API'};
+const frKinds:Record<string,string>={'Workspace':'l’espace de travail','Product':'le produit','Privilege':'le privilège','Group':'le groupe','Tag':'le tag','Tier':'le niveau','Tier variant':'la variante','Status policy':'la politique de statut','Organization':'l’organisation','Application user':'l’utilisateur applicatif','Member':'le membre','Contract':'le contrat','API key':'la clé API'};
 function value(v:unknown,fr:boolean):string {return v==null?'—':typeof v==='boolean'?(v?(fr?'Oui':'Yes'):(fr?'Non':'No')):typeof v==='object'?JSON.stringify(v):String(v);}
 export function AuditEntries({entries,language='en'}:{entries:AuditEntry[];language?:string}){
   const fr=language.startsWith('fr');

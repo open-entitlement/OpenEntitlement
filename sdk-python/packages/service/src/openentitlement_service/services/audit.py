@@ -63,6 +63,7 @@ class TargetKind(StrEnum):
     APPLICATION_USER = "Application user"
     MEMBER = "Member"
     API_KEY = "API key"
+    CONTRACT = "Contract"
 
 
 class Aspect(StrEnum):

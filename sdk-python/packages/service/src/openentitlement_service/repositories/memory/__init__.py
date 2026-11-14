@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID
 
+from ...services.contracts import Contract
 from ...services.api_keys import ApiKey
 from ...services.audit import AuditEntry
 from ...services.catalog import CatalogRecord, VariantValues
@@ -35,6 +36,8 @@ from ...services.repositories import AlreadyExists, Repositories, StaleVersion, 
 
 @dataclass
 class _Rows:
+    contracts: dict[tuple[UUID, UUID], Contract] = field(default_factory=dict)
+    documents: dict[tuple[UUID, UUID, UUID], bytes] = field(default_factory=dict)
     variant_values: dict[tuple[UUID, UUID, str], VariantValues] = field(default_factory=dict)
     tiers: dict[tuple[UUID, UUID, str], TierRecord] = field(default_factory=dict)
     status_policies: dict[tuple[UUID, UUID], StatusPolicyRecord] = field(default_factory=dict)
@@ -540,6 +543,34 @@ class InMemoryOrganizationsRepository:
         del self.rows.users[key]
 
 
+class InMemoryContractsRepository:
+    def __init__(self, rows: _Rows, workspace: UUID | None) -> None:
+        self.rows, self.workspace = rows, workspace
+
+    async def list(self, product: UUID, organization: str) -> Sequence[Contract]:
+        return [c for (w, _), c in self.rows.contracts.items()
+                if w == self.workspace and c.product_id == product and c.organization_id == organization]
+
+    async def get(self, id: UUID) -> Contract | None:
+        found = self.rows.contracts.get((self.workspace, id)) if self.workspace else None
+        return found.model_copy(deep=True) if found else None
+
+    async def save(self, contract: Contract, *, expected_version: int) -> None:
+        ensure_bound_workspace(self.workspace, contract.workspace_id)
+        current = await self.get(contract.id)
+        if (current.version if current else 0) != expected_version:
+            raise StaleVersion(str(contract.id))
+        self.rows.contracts[(contract.workspace_id, contract.id)] = contract.model_copy(deep=True)
+
+    async def put_document(self, contract: UUID, id: UUID, content: bytes) -> None:
+        if self.workspace is None:
+            raise LookupError("Workspace required")
+        self.rows.documents[(self.workspace, contract, id)] = content
+
+    async def document(self, contract: UUID, id: UUID) -> bytes | None:
+        return self.rows.documents.get((self.workspace, contract, id)) if self.workspace else None
+
+
 class InMemoryStore:
     def __init__(self) -> None:
         self._committed = _Rows()
@@ -564,6 +595,7 @@ class InMemoryStore:
                 directory=InMemoryDirectoryRepository(working, account_id),
                 invitations=InMemoryInvitationsRepository(working, workspace_id),
                 audit=InMemoryAuditRepository(working, workspace_id),
+                contracts=InMemoryContractsRepository(working, workspace_id),
                 api_keys=InMemoryApiKeysRepository(working, workspace_id),
             )
             self._committed = working

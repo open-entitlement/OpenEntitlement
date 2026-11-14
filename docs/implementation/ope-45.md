@@ -1,6 +1,6 @@
 # OPE-45 switch-over work record
 
-Status: integration preview; not complete or released. Contract/PDF parity and
+Status: integration preview; not complete or released. Current-head Linux image parity and
 fresh conductor review remain required before accepting the switch-over.
 
 The root `Dockerfile`, Compose examples and `npm start` now launch Python and
@@ -31,31 +31,63 @@ The prior accepted implementation (#13, main's `console/server/contracts-api.ts`
   survival in Postgres; anonymous/evaluation credentials cannot access documents.
 - An Organization panel for the complete flow.
 
-Python has no corresponding tables/migration, repository protocols/adapters,
-service operations or HTTP routes; WorkspaceApp does not mount ContractsPanel.
-The legacy panel/types remain in source but do not establish runtime support.
-This is substantial missing functionality, not a documentation-only discrepancy.
-The old global admin-token API and caller-supplied actor cannot simply be mounted
-in the authenticated Workspace service. Evidence IDs must map to current
-Product-scoped Organization terms and application-user Grants. The implementation
-must retain Workspace isolation and actual authenticated audit actors.
+Python parity is implemented in `services/contracts.py`, the memory/Postgres
+repository adapters, migration `0010_contracts`, and the Workspace Organization
+panel. Contract metadata is a typed, versioned record; PDF bytes are stored
+separately and never included in JSON, YAML configuration, audit snapshots or
+OEREP responses. Contract dates and status remain documentary only.
 
-Concrete options for the conductor/owner:
+Contracts belong to one Workspace, Product and Organization. Product Managers,
+Workspace Owners and Platform administrators can manage/read these confidential
+records; Product Users cannot read the embedded actor history or private PDFs.
+Every operation checks this authority before reading records. Writes take the
+same Product lock as Organization terms and application users; contract versions
+protect metadata edits. PDF/history/evidence/audit writes commit together.
 
-1. Keep OPE-45 blocked while implementing Python contract/evidence repositories,
-   Workspace/Product authorization, typed service operations and routes, private
-   document storage and the Organization UI. Restore the prior regression matrix
-   with cross-Workspace/Product refusals, authenticated audit, transactional
-   concurrency/restart tests and a real-OIDC upload/link/download browser test.
-2. Split the launch switch from the integration and keep the existing Node launch
-   as the default until equivalent Python functionality passes that matrix.
+Evidence uses explicit service-value identities: `terms:<privilege>` names an
+Organization term and `grant:<subject ID>:<privilege>` names an application-user
+Grant, both in the contract's Product and Organization. These are control-plane
+references, not new SDK IDs or protocol PDF fields. Source existence is checked
+under the Product lock. Pages are positive safe integers referencing a PDF owned
+by the contract; the prior implementation did not parse or verify page counts,
+and this port does not invent extraction behavior.
 
-Neither option removes the approved capability. No reduced-scope rollout is
-approved here; the PRD retains its historical implementation and names the gap.
-Do not mark OPE-45 Done or merge this switch-over on documentation changes alone.
+The retained Organization contract panel now uses the authenticated session and
+CSRF transport, including raw PDF uploads. Caller-supplied actors and admin tokens
+are not used. Unified audit records capture authenticated actors and metadata
+changes; the retained contract history also records actor email, reason and time.
+
+No reduced-scope rollout, merge or release is established by this implementation.
+Whole-integration conductor review and current-head Linux image parity remain
+required before accepting OPE-45.
 
 ## Validation
 
 See the PR finding response for commands/results pinned to the fixing head.
 Required Linux image/browser/SDK parity and fresh conductor Spec/Standards review
 are still owed. Prior implementation evidence is not a result for a new head.
+
+Contract parity implementation validation (2026-11-14):
+
+- Postgres-enabled `uv run pytest -q tests/service`: **466 passed**, one
+  Starlette deprecation warning. Final focused contract/restart rerun after
+  service-entry authorization hardening and metadata edit coverage: **7 passed**.
+- Contracts cover memory and Postgres: foreign Workspace/Product/Organization,
+  Product User/foreign Manager refusals, real audit actors, malformed/oversized
+  PDFs, 20-document limit, term/Grant ownership, document/page references,
+  concurrent uploads, stale edits, transaction rollback and restart persistence.
+- Console typecheck, production build, **20 console tests**, real-OIDC browser
+  contract upload/link/download and both SDK outputs pass. Reusable contract
+  evidence story exercises source/PDF/page selection.
+- Strict service mypy (**52 source files**), CI Ruff scope, three import-layer
+  contracts, deptry and exact SDK npm quality command pass. Root Docker image
+  rebuild passes; no dependency reintroduced into the console.
+- Local image browser parity was attempted twice, including an all-interface
+  container listener. Docker Desktop host networking still could not reach the
+  service although migrations and internal health checks succeeded. Full Linux
+  image/browser parity remains required; this is not a green container claim.
+- Self-review: Spec retains metadata/history, private evidence, service-only
+  references and documentary dates with no quota/billing/license effects.
+  Standards checks typed validation, Product locks, record versions, Workspace
+  RLS, transaction boundaries, CSRF and authenticated audit. This is implementer
+  self-review, not independent approval. Conductor must review the whole diff.
