@@ -21,6 +21,8 @@ from ...services.members import MemberService
 from ...services.workspaces import Deployment, WorkspaceService, utcnow
 from . import api_keys, auth, problems, workspaces, catalog, members, oerep, tiers, organizations
 from . import audit
+from .telemetry import Telemetry, console_headers
+from .telemetry import router as telemetry_router
 from .oidc import OidcClient
 
 
@@ -34,6 +36,7 @@ def create_app(
     deployment: Deployment = Deployment.SELF_HOSTED,
     on_startup: Callable[[], Awaitable[None]] | None = None,
     on_shutdown: Callable[[], Awaitable[None]] | None = None,
+    telemetry: Telemetry | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -48,6 +51,7 @@ def create_app(
     app = FastAPI(title="OpenEntitlement", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     problems.install(app)
     app.state.store = store
+    app.state.telemetry = telemetry
     app.state.workspaces = WorkspaceService(store, clock=clock, deployment=deployment)
     app.state.members = MemberService(store, clock=clock)
     # Boolean environment prerequisites read the install's environment (ADR-0004).
@@ -67,6 +71,7 @@ def create_app(
     app.include_router(audit.router)
     app.include_router(api_keys.router)
     app.include_router(oerep.router)
+    app.include_router(telemetry_router)
 
     @app.get("/healthz", tags=["health"])
     async def health() -> dict[str, str]:
@@ -74,14 +79,14 @@ def create_app(
         return {"status": "ok"}
 
     if console_dir is not None:
-        _serve_console(app, console_dir.resolve())
+        _serve_console(app, console_dir.resolve(), console_headers(telemetry))
     return app
 
 
 API_PREFIXES = ("api", "auth", "oerep", "mcp", "healthz")
 
 
-def _serve_console(app: FastAPI, root: Path) -> None:
+def _serve_console(app: FastAPI, root: Path, headers: dict[str, str]) -> None:
     """Serve the built React console, falling back to its page for client-side routes.
 
     Mounted last, so it only sees addresses no route matched. API addresses never fall back.
@@ -94,6 +99,6 @@ def _serve_console(app: FastAPI, root: Path) -> None:
             raise NotFound()
         candidate = (root / path).resolve()
         target = candidate if candidate.is_relative_to(root) and candidate.is_file() else index
-        await FileResponse(target)(scope, receive, send)
+        await FileResponse(target, headers=headers)(scope, receive, send)
 
     app.mount("/", console)

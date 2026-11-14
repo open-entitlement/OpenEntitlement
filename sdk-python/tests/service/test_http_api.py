@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from openentitlement_service.interfaces.http import create_app
+from openentitlement_service.interfaces.http import Telemetry, create_app
 from openentitlement_service.repositories.memory import InMemoryStore
 
 PROBLEM = "application/problem+json"
@@ -158,6 +158,31 @@ def test_console_never_serves_files_outside_its_directory(console_client: TestCl
     (tmp_path.parent / "secret.txt").write_text("secret")
     response = console_client.get("/..%2Fsecret.txt")
     assert "secret" not in response.text
+
+
+def test_console_pages_carry_a_content_security_policy(console_client: TestClient) -> None:
+    for path in ("/", "/assets/app.js", "/app/workspaces"):
+        headers = console_client.get(path).headers
+        policy = headers["content-security-policy"]
+        assert "default-src 'self'" in policy and "script-src 'self'" in policy and "frame-ancestors 'none'" in policy
+        assert "posthog" not in policy and "blob:" not in policy
+        assert headers["x-content-type-options"] == "nosniff"
+        assert headers["referrer-policy"] == "same-origin"
+
+
+def test_telemetry_is_off_unless_configured(console_client: TestClient) -> None:
+    response = console_client.get("/telemetry.json")
+    assert response.status_code == 200 and response.json() == {}
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_configured_telemetry_reaches_the_console_and_its_policy(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    (tmp_path / "index.html").write_text("<!doctype html><title>OpenEntitlement</title>")
+    telemetry = Telemetry(key="phc_abc123", host="https://eu.i.posthog.com")
+    client = TestClient(create_app(InMemoryStore(), console_dir=tmp_path, telemetry=telemetry))
+    assert client.get("/telemetry.json").json() == {"posthog": {"key": "phc_abc123", "host": "https://eu.i.posthog.com"}}
+    policy = client.get("/").headers["content-security-policy"]
+    assert "connect-src 'self' https://eu.i.posthog.com" in policy and "worker-src 'self' blob:" in policy
 
 
 def test_unknown_api_address_is_not_found_for_any_method(console_client: TestClient) -> None:

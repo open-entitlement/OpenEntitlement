@@ -1,2 +1,2 @@
-/** Zod Privilege Catalog authoring models shared by browser, server and SDK consumers. */
-export * from "@openentitlement/core/authoring";
+// Transitional export until the Node runtime is retired in OPE-45.
+export * from "../../web/src/model/privilege-definition.ts";

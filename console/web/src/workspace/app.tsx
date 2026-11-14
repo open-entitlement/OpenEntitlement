@@ -7,7 +7,7 @@ import { Catalog } from "./catalog.tsx";
 import { Tiers } from "./tiers.tsx";
 import { Organizations } from "./organizations.tsx";
 import { WorkspaceSettings,WorkspaceConfiguration } from "./settings.tsx";
-import { changesContractTerms,type WorkspaceData,type Organization } from "../../../server/workspace/model.ts";
+import { changesContractTerms,type WorkspaceData,type Organization } from "../model/model.ts";
 import { useConfirm,useReason,useToast } from "../ui.tsx";
 import { WorkspaceSwitcher } from "./workspace-switcher.tsx";
 import { ProductSelector, pickProduct, type ProductSummary } from "./product-selector.tsx";
@@ -15,7 +15,7 @@ import { hasPendingWrites,hasUnsavedChanges,trackWrite,useUnsavedChanges,writesS
 import { FormField } from "../form.tsx";
 import "./style.css";
 // The Python service lists visible Products and loads their Catalog separately.
-export interface Workspace {/** On the Python service: each Organization's values in the selected Product, as the SDK resolved them. */organizationValues?:(organizationId:string)=>OrganizationProduct|undefined;/** On the Python service: an application user's record and values in the selected Product. */userValues?:(organizationId:string,subjectId:string)=>ApplicationUser|undefined;products?:ProductSummary[];catalogVersions?:Record<string,Record<string,number>>;catalogVariants?:import("./product-catalog.ts").CatalogVariant[];hosting?:{mode:"self_hosted"|"saas";tier:"pro"|"enterprise";subjectEntitlements:boolean;productLimit?:number|null};version?:number;id:string;name:string;role:string;data:WorkspaceData;revision:number;environment?:import("../../../server/environment.ts").EnvironmentOverrides}
+export interface Workspace {/** On the Python service: each Organization's values in the selected Product, as the SDK resolved them. */organizationValues?:(organizationId:string)=>OrganizationProduct|undefined;/** On the Python service: an application user's record and values in the selected Product. */userValues?:(organizationId:string,subjectId:string)=>ApplicationUser|undefined;products?:ProductSummary[];catalogVersions?:Record<string,Record<string,number>>;catalogVariants?:import("./product-catalog.ts").CatalogVariant[];hosting?:{mode:"self_hosted"|"saas";tier:"pro"|"enterprise";subjectEntitlements:boolean;productLimit?:number|null};version?:number;id:string;name:string;role:string;data:WorkspaceData;revision:number;environment?:import("../model/environment.ts").EnvironmentOverrides}
 // The service's message for a save sent with an old revision (HTTP 409). Reloading the workspace fixes it.
 const STALE_REVISION="Workspace changed elsewhere. Refresh before saving.";
 /**

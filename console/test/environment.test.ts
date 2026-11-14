@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {stringify} from 'yaml';
 import {environmentOverride} from '../server/environment.ts';
-import {emptyData,feature,privilege,tier,variant,organization,resolve,catalogEnvironment} from '../server/workspace/model.ts';
+import {emptyData,feature,privilege,tier,variant,organization,resolve,catalogEnvironment} from '../web/src/model/model.ts';
 import {buildRuntime,configFromEnv} from '../server/config.ts';
 import {startServer} from '../server/main.ts';
 

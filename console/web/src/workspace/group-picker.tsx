@@ -1,6 +1,6 @@
 import {useId,useRef,useState,type ReactNode} from 'react';
 import {identifierFromTitle} from './identifier.ts';
-import type {Group} from '../../../server/workspace/model.ts';
+import type {Group} from '../model/model.ts';
 
 /** A Group identifier from its title, unique among the taken ones. */
 export function newGroupId(name:string,takenIds:readonly string[]){

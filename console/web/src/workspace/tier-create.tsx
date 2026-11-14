@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {trackWrite,useUnsavedChanges} from "./unsaved.ts";
 import type {Workspace,Save} from "./app.tsx";
-import {tier as validTier,variant as validVariant,type Tier,type Value} from "../../../server/workspace/model.ts";
+import {tier as validTier,variant as validVariant,type Tier,type Value} from "../model/model.ts";
 import {ValuesEditor} from "./fields.tsx";
 import {FormField} from "../form.tsx";
 import {identifierFromTitle,uniqueIdentifier,variantName} from "./identifier.ts";

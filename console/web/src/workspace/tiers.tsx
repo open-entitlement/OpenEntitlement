@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {useUnsavedChanges} from "./unsaved.ts";
 import type {Workspace,Save} from "./app.tsx";
-import type {Tier,Variant} from "../../../server/workspace/model.ts";
+import type {Tier,Variant} from "../model/model.ts";
 import {ValuesEditor} from "./fields.tsx";
 import {FormField} from "../form.tsx";
 import {StatusPolicy} from "./status-policy.tsx";

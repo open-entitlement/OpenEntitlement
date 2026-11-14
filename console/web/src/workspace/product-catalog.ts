@@ -1,7 +1,7 @@
 /** Explicit adapter between the canonical Python Catalog and Tiers and the preview console components. */
-import {emptyData,type WorkspaceData,type Group,type Tag,type Value,type Tier,type Variant,type StatusPolicy,type Organization,type SubjectEntitlement} from '../../../server/workspace/model.ts';
-import {storedDefinition} from '../../../server/workspace/catalog-adapter.ts';
-import type {Privilege} from '../../../server/workspace/privilege-definition.ts';
+import {emptyData,type WorkspaceData,type Group,type Tag,type Value,type Tier,type Variant,type StatusPolicy,type Organization,type SubjectEntitlement} from '../model/model.ts';
+import {storedDefinition} from '../model/catalog-adapter.ts';
+import type {Privilege} from '../model/privilege-definition.ts';
 export interface CatalogVariant {id:string;tierId:string;kind:Variant['kind'];name:string;version:number;values:Record<string,Value>}
 export type VariantInputs=Record<string,{version:number;value:Value}>;
 export interface ProductCatalog {variants:CatalogVariant[];catalog:{groups:Array<{id:string;title:string;description:string;parentId?:string}>;tags:Array<{id:string;title:string;description:string}>;privileges:Privilege[]};versions:Record<string,Record<string,number>>}

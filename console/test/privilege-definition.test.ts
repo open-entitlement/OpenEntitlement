@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {parsePrivilege,type IntegerPrivilege} from '../server/workspace/privilege-definition.ts';
-import {normalizeCatalog,catalogDefinition} from '../server/workspace/catalog-adapter.ts';
-import {emptyData} from '../server/workspace/model.ts';
+import {parsePrivilege,type IntegerPrivilege} from '../web/src/model/privilege-definition.ts';
+import {normalizeCatalog,catalogDefinition} from '../web/src/model/catalog-adapter.ts';
+import {emptyData} from '../web/src/model/model.ts';
 
 test('typed Privileges have visibility, one Group, multiple Tags and a boolean-only environment field',()=>{
  const input={key:'mcp_enabled',title:'MCP access',description:'Allow MCP access',type:'boolean',visibility:'read_only',default:false,envOverride:'MCP_INSTALLED',groupId:'mcp',tags:['enterprise','integration']};
@@ -24,7 +24,7 @@ test('legacy Feature containers become stable Groups while preserving visibility
  normalizeCatalog(data);const id=data.privileges[0]!.groupId;assert.notEqual(id,'feature_exports');assert.equal(data.groups.find(g=>g.id===id)!.parentId,'product');const count=data.groups.length;normalizeCatalog(data);assert.equal(data.groups.length,count);assert.equal(catalogDefinition(data.privileges[0]!,data).groupId,id);
 });
 
-import {parseCatalog,standaloneCatalog} from '../server/workspace/privilege-definition.ts';
+import {parseCatalog,standaloneCatalog} from '../web/src/model/privilege-definition.ts';
 test('Catalog validates Group and Tag relationships and adapts supported standalone definitions',()=>{
  const catalog={groups:[{id:'mcp',title:'MCP'}],tags:[{id:'enterprise',title:'Enterprise'},{id:'integration',title:'Integration'}],privileges:[{key:'mcp_enabled',title:'MCP access',type:'boolean',default:false,groupId:'mcp',tags:['enterprise','integration'],envOverride:'MCP_INSTALLED'}]};
  assert.equal(parseCatalog(catalog).privileges[0]!.groupId,'mcp');assert.equal((standaloneCatalog(catalog) as any).features[0].privileges[0].envVariable,'MCP_INSTALLED');

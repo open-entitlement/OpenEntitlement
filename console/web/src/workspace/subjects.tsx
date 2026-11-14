@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useUnsavedChanges } from "./unsaved.ts";
 import type { Workspace, Save } from "./app.tsx";
-import { resolve, type Value, type WorkspaceData } from "../../../server/workspace/model.ts";
+import { resolve, type Value, type WorkspaceData } from "../model/model.ts";
 import { ValuesEditor, Field } from "./fields.tsx";
 import { EnvironmentNotice } from "../ui.tsx";
 import { FormField } from "../form.tsx";

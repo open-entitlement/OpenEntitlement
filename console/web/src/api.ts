@@ -4,7 +4,7 @@ export type Json = any;
 export type ValueType = "boolean" | "integer" | "enum";
 
 export interface PrivilegeDef {
-  environment?:import("../../server/environment.ts").EnvironmentOverride;
+  environment?:import("./model/environment.ts").EnvironmentOverride;
   frozen?:boolean;
   hidden?:boolean;
   envVariable?:string;
@@ -47,7 +47,7 @@ export interface Plan {
 }
 export interface Details {
   frozen?:boolean;
-  environment?:import("../../server/environment.ts").EnvironmentOverride;
+  environment?:import("./model/environment.ts").EnvironmentOverride;
   privilege: string;
   value: Json;
   reason: "PLAN" | "OVERRIDE" | "GRANT" | "FIXED" | "DEFAULT" | "ERROR";

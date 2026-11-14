@@ -7,12 +7,12 @@ import {
   variant,
   organization,
   resolve,
-} from "../server/workspace/model.ts";
+} from "../web/src/model/model.ts";
 import {
   subject,
   subjectIdentifier,
   validateSubjects,
-} from "../server/workspace/subjects.ts";
+} from "../web/src/model/subjects.ts";
 import {
   hosting,
   requireSubjectEntitlements,

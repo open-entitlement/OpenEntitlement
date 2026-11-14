@@ -1,7 +1,7 @@
 import type {Meta,StoryObj} from '@storybook/react-vite';
 import {expect,userEvent,within} from 'storybook/test';
 import {Catalog} from './catalog.tsx';
-import {emptyData} from '../../../server/workspace/model.ts';
+import {emptyData} from '../model/model.ts';
 const data=emptyData();
 data.groups=[{id:'integration',name:'Integrations',description:'Connect to other tools.'}];
 data.tags=[{id:'enterprise',name:'Enterprise',description:''},{id:'integration',name:'Integration',description:''}];

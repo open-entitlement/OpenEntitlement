@@ -7,7 +7,7 @@ from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import make_url
 
-from openentitlement_service.interfaces.http import OidcSettings, SignInSettings
+from openentitlement_service.interfaces.http import OidcSettings, SignInSettings, Telemetry
 from openentitlement_service.main import Settings, build_app
 from openentitlement_service.repositories.postgres.migrate import alembic_config
 
@@ -39,6 +39,26 @@ def test_the_deployment_mode_is_self_hosted_unless_set_to_saas() -> None:
     assert Settings.from_env({"OE_DEPLOYMENT_MODE": "saas"}).deployment == "saas"
     with pytest.raises(SystemExit):
         Settings.from_env({"OE_DEPLOYMENT_MODE": "cloud"})
+
+
+def test_telemetry_is_off_unless_a_posthog_key_is_set() -> None:
+    assert Settings.from_env({}).telemetry is None
+    assert Settings.from_env({"OE_POSTHOG_KEY": "phc_abc"}).telemetry == Telemetry(key="phc_abc", host="https://us.i.posthog.com")
+    settings = Settings.from_env({"OE_POSTHOG_KEY": " phc_abc ", "OE_POSTHOG_HOST": "https://eu.i.posthog.com/"})
+    assert settings.telemetry == Telemetry(key="phc_abc", host="https://eu.i.posthog.com")
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        {"OE_POSTHOG_KEY": "secret_key"},
+        {"OE_POSTHOG_KEY": "phc_abc", "OE_POSTHOG_HOST": "http://eu.i.posthog.com"},
+        {"OE_POSTHOG_KEY": "phc_abc", "OE_POSTHOG_HOST": "https://eu.i.posthog.com/path"},
+    ],
+)
+def test_refuses_invalid_telemetry_settings(env: dict[str, str]) -> None:
+    with pytest.raises(SystemExit, match="OE_POSTHOG"):
+        Settings.from_env(env)
 
 
 def test_defaults_listen_locally() -> None:

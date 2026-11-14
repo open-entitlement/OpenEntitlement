@@ -2,8 +2,8 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { SubjectEntitlements } from "./subjects.tsx";
-import { emptyData } from "../../../server/workspace/model.ts";
-import { subject } from "../../../server/workspace/subjects.ts";
+import { emptyData } from "../model/model.ts";
+import { subject } from "../model/subjects.ts";
 import type { Workspace } from "./app.tsx";
 const data = emptyData();
 data.privileges = [

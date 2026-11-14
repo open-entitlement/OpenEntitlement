@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from .interfaces.http import OidcSettings, SignInSettings, create_app
+from .interfaces.http import OidcSettings, SignInSettings, Telemetry, create_app
 from .repositories.memory import InMemoryStore
 from .repositories.postgres import PostgresStore, create_engine, migrate
 from .services.workspaces import Deployment
@@ -40,6 +40,8 @@ class Settings:
     sign_in: SignInSettings | None = None
     #: ``OE_DEPLOYMENT_MODE``: ``self_hosted`` (no Product limit) or ``saas`` (OpenEntitlement Cloud service tiers).
     deployment: Deployment = Deployment.SELF_HOSTED
+    #: Opt-in PostHog for the console (``OE_POSTHOG_KEY``, ``OE_POSTHOG_HOST``). ``None`` sends nothing.
+    telemetry: Telemetry | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -54,6 +56,7 @@ class Settings:
             console_dir=Path(console) if console else (_CHECKOUT_CONSOLE if _CHECKOUT_CONSOLE.is_dir() else None),
             sign_in=_sign_in(env),
             deployment=_deployment(env),
+            telemetry=_telemetry(env),
         )
 
 
@@ -63,6 +66,13 @@ def _deployment(env: Mapping[str, str]) -> Deployment:
         return Deployment(value)
     except ValueError:
         raise SystemExit("OE_DEPLOYMENT_MODE must be self_hosted or saas.") from None
+
+
+def _telemetry(env: Mapping[str, str]) -> Telemetry | None:
+    try:
+        return Telemetry.from_env(env)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
 
 
 def _sign_in(env: Mapping[str, str]) -> SignInSettings | None:
@@ -96,7 +106,11 @@ def build_app(settings: Settings, *, migrate_at_startup: bool = True) -> FastAPI
             raise SystemExit("Set DATABASE_URL to a Postgres URL, or OE_IN_MEMORY=true to keep data in memory.")
         logger.warning("OE_IN_MEMORY is set: data is kept in memory and lost when the service stops")
         return create_app(
-            InMemoryStore(), console_dir=settings.console_dir, sign_in=settings.sign_in, deployment=settings.deployment
+            InMemoryStore(),
+            console_dir=settings.console_dir,
+            sign_in=settings.sign_in,
+            deployment=settings.deployment,
+            telemetry=settings.telemetry,
         )
 
     url = settings.database_url
@@ -117,6 +131,7 @@ def build_app(settings: Settings, *, migrate_at_startup: bool = True) -> FastAPI
         console_dir=settings.console_dir,
         sign_in=settings.sign_in,
         deployment=settings.deployment,
+        telemetry=settings.telemetry,
         on_startup=startup,
         on_shutdown=engine.dispose,
     )

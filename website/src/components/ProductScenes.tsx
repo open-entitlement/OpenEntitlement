@@ -1,6 +1,6 @@
 import {Catalog} from '../../../console/web/src/workspace/catalog';
 import {ValuesEditor} from '../../../console/web/src/workspace/fields';
-import {emptyData,resolve,type WorkspaceData} from '../../../console/server/workspace/model';
+import {emptyData,resolve,type WorkspaceData} from '../../../console/web/src/model/model';
 import './product-scenes.css';
 function example():WorkspaceData {
  return {...emptyData(),

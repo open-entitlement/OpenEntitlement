@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Workspace,Save } from "./app.tsx";
-import { type Organization } from "../../../server/workspace/model.ts";
+import { type Organization } from "../model/model.ts";
 import {EffectiveEntitlements, SubjectEntitlements} from "./subjects.tsx";
 import { ValuesEditor } from "./fields.tsx";
 import { FormField } from "../form.tsx";

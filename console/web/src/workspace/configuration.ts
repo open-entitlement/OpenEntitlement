@@ -1,7 +1,7 @@
 /** The read-only YAML snapshot on Settings → Configuration. Hidden Privileges and their values never appear in it. */
 import { stringify } from "yaml";
-import { catalogDefinition } from "../../../server/workspace/catalog-adapter.ts";
-import type { WorkspaceData } from "../../../server/workspace/model.ts";
+import { catalogDefinition } from "../model/catalog-adapter.ts";
+import type { WorkspaceData } from "../model/model.ts";
 
 /** The Product a snapshot covers. On the Python service each Product has its own Catalog and Tiers, so it exports one Product. */
 export interface SnapshotProduct { id: string; key: string; name: string }

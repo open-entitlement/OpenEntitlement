@@ -5,11 +5,11 @@ import {GroupPicker} from './group-picker.tsx';
 import {ChoiceList,cleanChoices} from './choice-list.tsx';
 import {identifierFromTitle} from './identifier.ts';
 import {Check,FormField} from '../form.tsx';
-import {storedDefinition} from '../../../server/workspace/catalog-adapter.ts';
-import type {Privilege} from '../../../server/workspace/privilege-definition.ts';
-import type {Group,Privilege as StoredPrivilege,Tag} from '../../../server/workspace/model.ts';
+import {storedDefinition} from '../model/catalog-adapter.ts';
+import type {Privilege} from '../model/privilege-definition.ts';
+import type {Group,Privilege as StoredPrivilege,Tag} from '../model/model.ts';
 import type {Workspace} from './app.tsx';
-import type {Value} from '../../../server/workspace/model.ts';
+import type {Value} from '../model/model.ts';
 import {useUnsavedChanges} from './unsaved.ts';
 
 /** A variant as the Privilege form needs it: requiring a value asks for the value of each variant that does not set its own. */
