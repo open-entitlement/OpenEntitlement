@@ -186,3 +186,26 @@ async def test_cloud_pro_has_no_application_users(store):
         assert refused.status_code == 403
         assert refused.json()["type"] == "https://openentitlement.dev/problems/user-entitlements-unavailable"
         assert refused.json()["serviceTier"] == "pro"
+
+
+async def test_create_without_tier_then_assign_same_organization(store):
+    """Both repositories retain Workspace identity independently of commercial assignment."""
+    async with _client(store) as (client, product):
+        organizations = product.split("/products/")[0] + "/organizations"
+        created = await client.post(organizations, json={"id": "acme", "name": "Acme"})
+        assert created.status_code == 201
+        original = created.json()["organizations"][0]
+        assert original["products"] == []
+        await _offer(client, product)
+        # Offering Tiers must not implicitly assign existing customers.
+        assert (await client.get(organizations)).json()["organizations"][0] == original
+        product_id = product.rsplit("/", 1)[1]
+        assigned = await client.put(
+            f"{organizations}/acme/products/{product_id}",
+            json={"variantId": "basic_standard", "version": 0},
+        )
+        assert assigned.status_code == 200
+        found = assigned.json()["organizations"][0]
+        assert (found["id"], found["version"]) == (original["id"], original["version"])
+        assert found["products"][0]["variantId"] == "basic_standard"
+        assert len((await client.get(organizations)).json()["organizations"]) == 1

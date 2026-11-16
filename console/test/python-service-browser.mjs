@@ -106,15 +106,6 @@ try{
  await page.getByRole('heading',{name:'Create your first tier',exact:true}).waitFor();
  await page.getByRole('button',{name:'Create tier',exact:true}).click();
  await page.getByLabel('Name',{exact:true}).fill('Pro');assert.equal(await page.getByLabel('ID',{exact:true}).inputValue(),'pro');
- // Save without commercial assignment, reload, then assign the same Workspace identity.
- await saveOrganization.click();await saveOrganization.waitFor({state:'hidden'});
- await page.locator('.workspace-card').filter({hasText:'Acme'}).getByText('Unassigned',{exact:true}).waitFor();
- assert.deepEqual((await (await page.request.get(organizationsPath)).json()).organizations.map(o=>[o.id,o.products]),[['acme',[]]]);
- await page.reload();
- await page.locator('.workspace-card').filter({hasText:'Acme'}).click();
- await page.getByRole('button',{name:'Edit organization',exact:true}).click();
- assert.equal(await page.getByLabel('Tier variant').inputValue(),'');
- await page.getByLabel('Tier variant').selectOption('pro_standard');
  await page.getByLabel('Override seats').check();await page.getByLabel('seats',{exact:true}).fill('20');
  await page.getByRole('button',{name:'Review tier',exact:true}).click();
  const review=page.getByRole('region',{name:'Review Pro'});assert.match(await review.getByRole('row').filter({hasText:'seats'}).innerText(),/20\s+Set for this tier/);
@@ -177,6 +168,15 @@ try{
  await page.getByRole('button',{name:'Add organization',exact:true}).click();await assertFormLayout(page);
  await page.getByLabel('Name',{exact:true}).fill('Acme');assert.equal(await page.getByLabel('ID',{exact:true}).inputValue(),'acme');
  assert.deepEqual(await page.getByLabel('Tier variant').locator('option').allInnerTexts(),['Unassigned','Pro standard','Pro trial'],'Grace variants are not given');
+ // Save without commercial assignment, reload, then assign the same Workspace identity.
+ await saveOrganization.click();await saveOrganization.waitFor({state:'hidden'});
+ await page.locator('.workspace-card').filter({hasText:'Acme'}).getByText('Unassigned',{exact:true}).waitFor();
+ assert.deepEqual((await (await page.request.get(organizationsPath)).json()).organizations.map(o=>[o.id,o.products]),[['acme',[]]]);
+ await page.reload();
+ await page.locator('.workspace-card').filter({hasText:'Acme'}).click();
+ await page.getByRole('button',{name:'Edit organization',exact:true}).click();
+ assert.equal(await page.getByLabel('Tier variant').inputValue(),'');
+ await page.getByLabel('Tier variant').selectOption('pro_standard');
  await page.getByLabel('Override seats').check();await page.getByLabel('seats',{exact:true}).fill('25');
  await saveOrganization.click();await reason();await saveOrganization.waitFor({state:'hidden'});
  const acmeCard=page.locator('.workspace-card').filter({hasText:'Acme'});await acmeCard.getByText('Pro standard · Active').waitFor();
@@ -297,7 +297,7 @@ try{
 await page.getByRole('heading',{name:'Define your first privilege',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Edit Seats',exact:true}).count(),0);await page.reload();await page.getByRole('combobox',{name:'Product'}).waitFor();await page.waitForFunction(()=>document.querySelector('.product-selector select option:checked')?.textContent==='Storage');
  // Organizations are Workspace-wide: Storage has no Tiers, yet Acme is listed there and can be renamed.
  await page.getByRole('link',{name:'Organizations',exact:true}).click();
- const storageCard=page.locator('.workspace-card').filter({hasText:'Acme'});await storageCard.getByText('No tier in this Product').waitFor();
+ const storageCard=page.locator('.workspace-card').filter({hasText:'Acme'});await storageCard.getByText('Unassigned',{exact:true}).waitFor();
  await storageCard.click();await page.getByRole('button',{name:'Edit organization',exact:true}).click();
  assert.equal(await page.getByLabel('Tier variant').count(),0,'No variant to give in a Product without Tiers');
  await page.getByLabel('Name',{exact:true}).fill('Acme Corp');await saveOrganization.click();await saveOrganization.waitFor({state:'hidden'});
