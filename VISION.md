@@ -6,7 +6,7 @@ The open protocol, dependency-light SDKs, conformance scenarios and reference se
 
 ## Product direction
 
-The hosted reference service should be an economical, transparent option for developers and smaller teams. Prefer shared infrastructure and measured, bounded resource use. Aim for customer revenue to cover allocated operating costs and a modest reserve; do not promise zero losses or set prices without observed unit costs. Infrastructure, storage, backups, observability, payment fees and operational work all count. Exact pricing and hosting architecture remain decisions to validate.
+The hosted reference service should be an economical, transparent option for developers and smaller teams. Prefer shared infrastructure and measured, bounded resource use. Aim for customer revenue to cover allocated operating costs and a modest reserve; do not promise zero losses or set prices without observed unit costs. Infrastructure, storage, backups, observability, payment fees and operational work all count. For OpenEntitlement Cloud, [ADR-0012](ADR-0012.md) selects prepaid PAYG: confirmed-payment monetary credits fund usage, with optional automatic recharge. Prices must also cover network, database and metering/billing overhead. Exact rates and billing/hosting architecture remain decisions to validate; billing delivery is planned.
 
 OpenEntitlement Cloud is not positioned as the automatic choice for every enterprise compliance program. Publish actual capabilities and assurance evidence. Do not imply SOC 2 Type II certification, enterprise controls, or provider compatibility that have not been demonstrated. Enterprises should be able to select another conforming implementation without rewriting application-facing entitlement checks.
 

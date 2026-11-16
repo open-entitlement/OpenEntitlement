@@ -15,6 +15,7 @@ Start with [VISION.md](../VISION.md) for purpose and boundaries, and [GLOSSARY.m
 | [ADR-0009](../ADR-0009.md) | Accepted, in progress on `service/python` (foundation: OPE-37; sign-in, Workspaces, Products and per-Product roles: OPE-38; Product Catalog: OPE-39; Tiers: OPE-40; Members, invitations and Cloud service tier: OPE-44; Organizations: OPE-41; application users: OPE-60): the service is rewritten in Python (uv, FastAPI, FastMCP) with three layers (interfaces → service layer → repositories), SQLAlchemy Core + asyncpg + Alembic, RFC 9457 errors everywhere; amends RFC-0004 and RFC-0005 |
 | [ADR-0010](../ADR-0010.md) | Accepted clarifications of ADR-0008/0009 (Q1–Q14); no protocol change; Q13 request body done on `service/python` (OPE-66); Q14 quickstart sessions pending |
 | [ADR-0011](../ADR-0011.md) | Accepted, not implemented (after OPE-45, Python service only): a Tier may set a Tier minimum for an integer Privilege that its standard variant and Organization terms cannot go below; constrains authoring, not evaluation; Minimum commitments are recorded on the contract and displayed only; no protocol change |
+| [ADR-0012](../ADR-0012.md) | Accepted Cloud commercial direction: prepaid PAYG, confirmed-payment monetary credits, optional recharge and sustainable cost coverage; architecture proposed, delivery unimplemented; no SDK/protocol or self-hosted change |
 | [RFC-0001](rfcs/0001-entitlements-v0.2.md) | Proposed historical contract refinement; retain unresolved parts explicitly, not as implemented requirements |
 | [RFC-0002](rfcs/0002-privilege-catalog.md) | Accepted reference authoring contract; not a normative OEREP version bump |
 | [RFC-0003](rfcs/0003-consumption-dashboard.md) | Proposed read-only consumption view; blocked on a real application/metering usage source |
@@ -23,6 +24,7 @@ Start with [VISION.md](../VISION.md) for purpose and boundaries, and [GLOSSARY.m
 | [RFC-0006](rfcs/0006-periodic-allowances.md) | Proposed: an optional reset period (day, week, month) on integer Privileges, returned by OEREP with the value; usage stays the application's; open questions for the owner; built after OPE-45 |
 | [Normative specification](../spec/README.md) | Released/draft version stated by the spec itself governs compatible SDK/wire behavior |
 | [Revenera spike](research/revenera-connector-spike.md) | Research: read-only connector feasibility, API beta caveat and runtime allocation boundaries |
+| [Cloud prepaid billing research](research/cloud-prepaid-billing.md) | Public primary-source model comparison; potential Metronome adapter, no vendor commitment or rate promise |
 | [Prior-art matrix](research/vendor-data-model-matrix.md) | Research evidence/inference, not product requirements or certified compatibility |
 
 ## Current implementation slices

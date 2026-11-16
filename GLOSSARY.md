@@ -68,6 +68,7 @@ Shared domain language for the authoring model and service. Compatibility terms 
 | **Conformance** | Demonstrated agreement with the relevant semantic and protocol requirements. |
 | **Control plane** | Administration of definitions, commercial facts, membership and policies. |
 | **Data plane** | Application-facing evaluation of entitlement decisions. |
+| **Monetary credits** | Prepaid value for OpenEntitlement Cloud service usage, distinct from an entitlement Grant (`OEGrant`). |
 | **Quote-to-Cash** | The commercial flow from a quote/order through agreed rights, billing, collection and renewal. |
 | **Deployment** | Where and how software runs, independent of its commercial Tier. |
 | **Problem type** | The stable URI that identifies one kind of error in an RFC 9457 Problem Details response, such as `https://openentitlement.dev/problems/validation-failed`. Clients branch on it, not on the human-readable title or detail. |

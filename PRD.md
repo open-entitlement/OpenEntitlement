@@ -88,7 +88,7 @@ Primary users:
 | Hosted multi-tenant service spec | ✅ spec, 📋 delivery | issue #15 |
 | Helm chart for self-hosting (bring your own Postgres and object store) | 📋 | issue #15 |
 | Infrastructure as code and automatic deploys from GitHub Actions; economical shared infrastructure, cloud not yet fixed | 📋 | issue #15, ADR-0003 |
-| Stripe billing for the hosted service: Owners pay; the service enforces its own plans with OpenEntitlement | 📋 | issue #15, ADR-0004 |
+| Cloud prepaid PAYG: confirmed-payment monetary credits fund usage, optional automatic recharge; sustainable pricing includes metering/billing and payment overhead | 📋 accepted commercial direction; architecture proposed, delivery unimplemented | [ADR-0012](ADR-0012.md), issue #15; vendors and detailed mechanics remain open |
 | Invitation email delivery | 📋 | issue #15 |
 
 ### Website, documentation and analytics
