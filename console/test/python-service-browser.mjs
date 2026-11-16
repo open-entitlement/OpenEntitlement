@@ -106,6 +106,15 @@ try{
  await page.getByRole('heading',{name:'Create your first tier',exact:true}).waitFor();
  await page.getByRole('button',{name:'Create tier',exact:true}).click();
  await page.getByLabel('Name',{exact:true}).fill('Pro');assert.equal(await page.getByLabel('ID',{exact:true}).inputValue(),'pro');
+ // Save without commercial assignment, reload, then assign the same Workspace identity.
+ await saveOrganization.click();await saveOrganization.waitFor({state:'hidden'});
+ await page.locator('.workspace-card').filter({hasText:'Acme'}).getByText('Unassigned',{exact:true}).waitFor();
+ assert.deepEqual((await (await page.request.get(organizationsPath)).json()).organizations.map(o=>[o.id,o.products]),[['acme',[]]]);
+ await page.reload();
+ await page.locator('.workspace-card').filter({hasText:'Acme'}).click();
+ await page.getByRole('button',{name:'Edit organization',exact:true}).click();
+ assert.equal(await page.getByLabel('Tier variant').inputValue(),'');
+ await page.getByLabel('Tier variant').selectOption('pro_standard');
  await page.getByLabel('Override seats').check();await page.getByLabel('seats',{exact:true}).fill('20');
  await page.getByRole('button',{name:'Review tier',exact:true}).click();
  const review=page.getByRole('region',{name:'Review Pro'});assert.match(await review.getByRole('row').filter({hasText:'seats'}).innerText(),/20\s+Set for this tier/);
@@ -167,7 +176,7 @@ try{
  await page.getByRole('heading',{name:'Add your first customer',exact:true}).waitFor();
  await page.getByRole('button',{name:'Add organization',exact:true}).click();await assertFormLayout(page);
  await page.getByLabel('Name',{exact:true}).fill('Acme');assert.equal(await page.getByLabel('ID',{exact:true}).inputValue(),'acme');
- assert.deepEqual(await page.getByLabel('Tier variant').locator('option').allInnerTexts(),['Pro standard','Pro trial'],'Grace variants are not given');
+ assert.deepEqual(await page.getByLabel('Tier variant').locator('option').allInnerTexts(),['Unassigned','Pro standard','Pro trial'],'Grace variants are not given');
  await page.getByLabel('Override seats').check();await page.getByLabel('seats',{exact:true}).fill('25');
  await saveOrganization.click();await reason();await saveOrganization.waitFor({state:'hidden'});
  const acmeCard=page.locator('.workspace-card').filter({hasText:'Acme'});await acmeCard.getByText('Pro standard · Active').waitFor();

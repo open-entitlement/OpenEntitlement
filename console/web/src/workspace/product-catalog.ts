@@ -80,7 +80,7 @@ export function organizationRequests(base:string,entry:Organization,view:Product
  const existing=view.organizations.find(o=>o.id===entry.id);
  const assignment={variantId:entry.variantId,status:entry.status,terms:entry.terms};
  const why=reason?{reason}:{};
- // Without a Tier variant (the Product has none yet), only the Organization itself is saved.
+ // Without a Tier variant (whether or not the Product offers Tiers), only the Organization itself is saved.
  if(!existing)return [{path:`${base}/organizations`,method:'POST',body:{id:entry.id,name:entry.name,...(entry.variantId?{assignment:{productId,...assignment},...why}:{})}}];
  const requests=[];
  if(existing.name!==entry.name)requests.push({path:`${base}/organizations/${entry.id}`,method:'PATCH',body:{name:entry.name,version:existing.version}});
