@@ -3,7 +3,7 @@ title: Organizations
 description: Assign each customer a Tier variant, record the terms of their deal, and see where every value came from.
 ---
 
-An **Organization** is one of your customers. Each one is assigned one [Tier](/docs/tiers/) variant and inherits its values. When a deal needs something different, record it on the Organization instead of cloning the Tier.
+An **Organization** is one of your customers. In the Python service preview, add it before choosing a [Tier](/docs/tiers/) variant, even when the Product has no Tiers. It appears as **Unassigned** and keeps the same Workspace identity when you assign it later from Edit organization. Assignment is optional even when Tiers exist. An assigned Organization inherits its variant’s values. When a deal needs something different, record it on the Organization instead of cloning the Tier.
 
 ## Organization terms
 
